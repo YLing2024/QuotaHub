@@ -698,12 +698,24 @@ a {
   display: flex;
   justify-content: flex-end;
   align-items: center;
+  gap: 12px;
   margin: -20px 0 24px;
 }
 
-/* 导出(44px)与导入(32px)按钮高度不同, 统一垂直居中 */
+/* 导入导出区块: 两个按钮等高协调, 统一视觉 */
 .section__actions .btn {
   align-self: center;
+  height: 44px;
+}
+
+.section__actions .btn--ghost {
+  height: 44px;
+  padding: 0 24px;
+  font-size: 13px;
+}
+
+.section__actions .form__msg {
+  margin-left: 8px;
 }
 
 /* ---------- Grid / Cards ---------- */
