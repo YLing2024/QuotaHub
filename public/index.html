@@ -64,6 +64,20 @@
 
       <section class="section">
         <div class="section__head">
+          <h3 class="section__title">快速配置</h3>
+          <span class="section__note">QUICK SETUP</span>
+        </div>
+        <p class="section__desc">点击预设卡片生成配置，可在下方表单中再修改</p>
+        <div class="quick-grid">
+          <button type="button" class="quick-card" data-preset="newapi">
+            <span class="quick-card__name">NEWAPI</span>
+            <span class="quick-card__desc">请求地址 · 访问令牌 · 用户 ID</span>
+          </button>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section__head">
           <h3 class="section__title">添加平台</h3>
           <span class="section__note">NEW PLATFORM</span>
         </div>
@@ -110,13 +124,6 @@
 }</textarea>
             </div>
           </div>
-          <div class="form__row">
-            <div class="field">
-              <button type="button" class="btn btn--ghost" id="btn-newapi">NEWAPI 快速配置</button>
-              <span class="field__hint">弹窗填入 请求地址 / 访问令牌 / 用户 ID，自动生成请求与提取函数</span>
-            </div>
-            <div class="field"></div>
-          </div>
           <div class="form__actions">
             <button type="submit" class="btn" id="btn-save">保存配置</button>
             <button type="button" class="btn btn--ghost" id="btn-cancel-edit" hidden>取消编辑</button>
@@ -153,7 +160,7 @@
   </main>
 
   <!-- ========== NEWAPI 快速配置弹窗 ========== -->
-  <div class="modal" id="newapi-modal" hidden>
+  <div class="modal" id="newapi-modal">
     <div class="modal__box">
       <div class="modal__head">
         <span class="modal__title">NEWAPI 快速配置</span>
