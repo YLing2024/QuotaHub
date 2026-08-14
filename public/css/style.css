@@ -200,6 +200,15 @@ a {
   letter-spacing: 2px;
 }
 
+.field__label--hint {
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--gray);
+  align-self: end;
+  padding-bottom: 13px;
+}
+
 .field__input {
   height: 44px;
   padding: 0 12px;
@@ -296,6 +305,46 @@ a {
   display: grid;
   grid-template-columns: 120px 1fr;
   gap: 14px;
+}
+
+/* ---------- 预设字段交互式编辑 ---------- */
+
+.pe-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 260px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.pe-field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.2fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.pe-field-row .field__input {
+  height: 36px;
+  font-size: 13px;
+}
+
+.pe-field-row .field__input.is-invalid {
+  border-color: var(--red);
+}
+
+.btn--sm {
+  align-self: flex-start;
+  font-size: 12px;
+  padding: 8px 14px;
+}
+
+#transfer-text {
+  height: 300px;
+  resize: vertical;
+  font-size: 12px;
+  line-height: 1.6;
 }
 
 .field__input--area {
@@ -470,6 +519,16 @@ a {
   vertical-align: middle;
 }
 
+/* URL 等长英文串可任意断行, 避免撑爆表格 */
+.table td.table__url {
+  word-break: break-all;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  max-width: 340px;
+  font-family: Consolas, "SFMono-Regular", Menlo, monospace;
+  font-size: 12px;
+}
+
 .table td:first-child {
   font-weight: 700;
   letter-spacing: 1px;
@@ -638,7 +697,13 @@ a {
 .section__actions {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
   margin: -20px 0 24px;
+}
+
+/* 导出(44px)与导入(32px)按钮高度不同, 统一垂直居中 */
+.section__actions .btn {
+  align-self: center;
 }
 
 /* ---------- Grid / Cards ---------- */
@@ -697,9 +762,10 @@ a {
 }
 
 .card__affix {
-  font-size: 20px;
-  font-weight: 500;
+  font-size: 14px;
+  font-weight: 400;
   color: var(--gray);
+  letter-spacing: 0;
   margin: 0 2px;
 }
 
