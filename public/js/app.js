@@ -519,8 +519,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let payload
     try {
       payload = readForm()
-      // 编辑已保存平台时, 表单里是掩码值(********): 后端会用保存的真实值回填再发请求
-      if (editingId) payload.maskedFrom = editingId
     } catch (err) {
       setMsg(err.message, true)
       verifyEditor.setValue(`配置错误：${err.message}`)
@@ -812,6 +810,10 @@ document.addEventListener('DOMContentLoaded', () => {
         fillForm(p)
         setEditing(id, p.name)
         switchTab('config')
+        // 编辑后自动滚动到表单, 不用手动上滑
+        if (typeof form.scrollIntoView === 'function') {
+          form.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        }
       }
       return
     }

@@ -5,47 +5,12 @@ const { fetchBalance } = require('../fetcher')
 
 const router = express.Router()
 
-// 敏感请求头(凭据类): 前端一律只看到掩码, 真实值只存在于后端存储
-const SENSITIVE_HEADER = /authorization|cookie|token|api[-_]?key|secret|auth/i
-const MASK = '********'
-
-function isSensitiveHeader(name) {
-  return SENSITIVE_HEADER.test(name)
-}
-
-function maskHeaders(headers) {
-  const out = {}
-  for (const [k, v] of Object.entries(headers || {})) {
-    out[k] = isSensitiveHeader(k) && v !== '' ? MASK : v
-  }
-  return out
-}
-
-// 合并掩码: 前端回传的掩码(********)不覆盖, 保留已保存的真实值;
-// 空字符串/缺失表示用户删除了该项; 新值正常覆盖
-function mergeMaskedHeaders(saved, incoming) {
-  const out = { ...(incoming || {}) }
-  for (const [k, v] of Object.entries(out)) {
-    if (v === MASK) {
-      if (saved && saved[k] !== undefined) out[k] = saved[k]
-      else delete out[k]
-    } else if (v === '') {
-      delete out[k]
-    }
-  }
-  return out
-}
-
 function toPublic(p) {
   const out = { ...p }
   // 旧数据迁移: response.prefix/suffix -> display
   out.display = out.display || {
     prefix: (p.response && p.response.prefix) || '',
     suffix: (p.response && p.response.suffix) || '',
-  }
-  // 凭据脱敏: 前端任何列表/保存响应都拿不到真实 token
-  if (out.request && out.request.headers) {
-    out.request = { ...out.request, headers: maskHeaders(out.request.headers) }
   }
   return out
 }
@@ -158,13 +123,6 @@ router.put('/:id', (req, res) => {
 
   const old = list[idx]
   const patch = pickConfig(req.body || {})
-  // 掩码/空值的敏感请求头不覆盖, 保留已保存的真实值
-  if (patch.request && patch.request.headers) {
-    patch.request = {
-      ...patch.request,
-      headers: mergeMaskedHeaders(old.request && old.request.headers, patch.request.headers),
-    }
-  }
   list[idx] = { ...old, ...patch }
   try {
     assertHasHandler(list[idx])
@@ -190,13 +148,6 @@ router.delete('/:id', (req, res) => {
 
 router.post('/validate', async (req, res) => {
   const body = req.body || {}
-  // 编辑已保存平台时, 表单里是掩码值: 用保存的真实值回填后再发请求(凭据不出后端)
-  if (body.maskedFrom) {
-    const saved = store.getPlatforms().find((p) => p.id === body.maskedFrom)
-    if (saved && body.request && body.request.headers) {
-      body.request.headers = mergeMaskedHeaders(saved.request && saved.request.headers, body.request.headers)
-    }
-  }
   try {
     const result = await fetchBalance(body)
     res.json({ ok: true, ...result })
