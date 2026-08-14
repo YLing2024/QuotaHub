@@ -4,6 +4,7 @@ const path = require('path')
 const DATA_DIR = path.join(__dirname, '..', 'data')
 const PLATFORMS_FILE = path.join(DATA_DIR, 'platforms.json')
 const BALANCES_FILE = path.join(DATA_DIR, 'balances.json')
+const PRESETS_FILE = path.join(DATA_DIR, 'presets.json')
 
 function ensureFile(file, initial) {
   fs.mkdirSync(DATA_DIR, { recursive: true })
@@ -46,12 +47,25 @@ function saveBalances(map) {
   writeJson(BALANCES_FILE, map)
 }
 
+function getPresets() {
+  ensureFile(PRESETS_FILE, [])
+  return readJson(PRESETS_FILE, [])
+}
+
+function savePresets(list) {
+  ensureFile(PRESETS_FILE, [])
+  writeJson(PRESETS_FILE, list)
+}
+
 module.exports = {
   DATA_DIR,
   PLATFORMS_FILE,
   BALANCES_FILE,
+  PRESETS_FILE,
   getPlatforms,
   savePlatforms,
   getBalances,
   saveBalances,
+  getPresets,
+  savePresets,
 }

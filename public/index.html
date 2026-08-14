@@ -65,15 +65,13 @@
       <section class="section">
         <div class="section__head">
           <h3 class="section__title">快速配置</h3>
-          <span class="section__note">QUICK SETUP</span>
+          <div class="section__head-actions">
+            <span class="section__note">QUICK SETUP</span>
+            <button type="button" class="btn btn--ghost" id="btn-add-preset">+ 添加预设</button>
+          </div>
         </div>
-        <p class="section__desc">点击预设卡片生成配置，可在下方表单中再修改</p>
-        <div class="quick-grid">
-          <button type="button" class="quick-card" data-preset="newapi">
-            <span class="quick-card__name">NEWAPI</span>
-            <span class="quick-card__desc">请求地址 · 访问令牌 · 用户 ID</span>
-          </button>
-        </div>
+        <p class="section__desc">点击预设卡片生成配置，可在下方表单中再修改；预设本身支持编辑，内置预设可重置为默认</p>
+        <div class="quick-grid" id="quick-grid"></div>
       </section>
 
       <section class="section">
@@ -159,29 +157,66 @@
 
   </main>
 
-  <!-- ========== NEWAPI 快速配置弹窗 ========== -->
-  <div class="modal" id="newapi-modal">
+  <!-- ========== 预设使用弹窗 ========== -->
+  <div class="modal" id="use-modal">
     <div class="modal__box">
       <div class="modal__head">
-        <span class="modal__title">NEWAPI 快速配置</span>
-        <button type="button" class="modal__close" id="m-close">×</button>
+        <span class="modal__title" id="use-modal-title">快速配置</span>
+        <button type="button" class="modal__close" id="use-close">×</button>
       </div>
-      <p class="modal__desc">填写后自动生成：GET /api/user/self 请求、请求头、quota ÷ 500000 提取函数</p>
-      <div class="modal__field">
-        <label class="field__label" for="m-base">请求地址（Base URL）</label>
-        <input class="field__input" id="m-base" placeholder="https://your-newapi.example.com">
+      <p class="modal__desc" id="use-modal-desc">填写后自动生成请求配置与提取函数</p>
+      <div class="modal__fields" id="use-fields"></div>
+      <div class="modal__actions">
+        <button type="button" class="btn" id="use-confirm">填入配置</button>
+        <button type="button" class="btn btn--ghost" id="use-cancel">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== 预设编辑弹窗 ========== -->
+  <div class="modal" id="preset-modal">
+    <div class="modal__box modal__box--wide">
+      <div class="modal__head">
+        <span class="modal__title" id="preset-modal-title">编辑预设</span>
+        <button type="button" class="modal__close" id="preset-close">×</button>
       </div>
       <div class="modal__field">
-        <label class="field__label" for="m-token">访问令牌</label>
-        <input class="field__input" id="m-token" placeholder="sk-你的访问令牌">
+        <label class="field__label" for="pe-name">预设名称</label>
+        <input class="field__input" id="pe-name" placeholder="NEWAPI">
       </div>
       <div class="modal__field">
-        <label class="field__label" for="m-user">用户 ID（可留空，查自己）</label>
-        <input class="field__input" id="m-user" placeholder="留空则不发送 New-Api-User 头">
+        <label class="field__label" for="pe-fields">字段（每行一个：key=显示名=占位提示）</label>
+        <textarea class="field__input field__input--area" id="pe-fields" rows="4" spellcheck="false">baseUrl=请求地址=https://your-newapi.example.com</textarea>
+      </div>
+      <div class="modal__row">
+        <div class="modal__field">
+          <label class="field__label" for="pe-method">请求方法</label>
+          <select class="field__input" id="pe-method">
+            <option>GET</option>
+            <option>POST</option>
+          </select>
+        </div>
+        <div class="modal__field modal__field--grow">
+          <label class="field__label" for="pe-url">URL 模板（支持 {{字段key}}）</label>
+          <input class="field__input" id="pe-url" placeholder="{{baseUrl}}/api/user/self">
+        </div>
+      </div>
+      <div class="modal__field">
+        <label class="field__label" for="pe-headers">请求头模板（JSON，支持 {{字段key}}，留空值自动移除）</label>
+        <textarea class="field__code" id="pe-headers" rows="4" spellcheck="false">{
+  "Authorization": "Bearer {{token}}"
+}</textarea>
+      </div>
+      <div class="modal__field">
+        <label class="field__label" for="pe-extractor">提取函数模板（JS，data 为响应 JSON，支持 {{字段key}}）</label>
+        <textarea class="field__code" id="pe-extractor" rows="6" spellcheck="false">function (data) {
+  return data.balance
+}</textarea>
       </div>
       <div class="modal__actions">
-        <button type="button" class="btn" id="m-confirm">填入配置</button>
-        <button type="button" class="btn btn--ghost" id="m-cancel">取消</button>
+        <button type="button" class="btn" id="pe-save">保存预设</button>
+        <button type="button" class="btn btn--ghost" id="pe-reset" hidden>重置为默认</button>
+        <button type="button" class="btn btn--ghost" id="pe-cancel">取消</button>
       </div>
     </div>
   </div>

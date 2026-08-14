@@ -120,57 +120,197 @@ document.addEventListener('DOMContentLoaded', () => {
     extraKeys: { 'Ctrl-Enter': () => document.getElementById('btn-validate').click() },
   })
 
-  /* ---------- 快速配置预设卡片 ---------- */
+  /* ---------- 快速配置预设 ---------- */
 
-  const openPreset = (preset) => {
-    if (preset === 'newapi') {
-      openModal()
-      return
+  const quickGrid = document.getElementById('quick-grid')
+  let presets = []
+
+  const render = (tpl, vars) => {
+    if (typeof tpl === 'string') {
+      return tpl.replace(/\{\{(\w+)\}\}/g, (m, k) => (vars[k] !== undefined && vars[k] !== '' ? vars[k] : m))
     }
+    if (Array.isArray(tpl)) return tpl.map((x) => render(x, vars))
+    if (tpl && typeof tpl === 'object') {
+      const out = {}
+      for (const [k, v] of Object.entries(tpl)) out[k] = render(v, vars)
+      return out
+    }
+    return tpl
   }
 
-  document.querySelectorAll('.quick-card').forEach((card) => {
-    card.addEventListener('click', () => openPreset(card.dataset.preset))
-  })
+  const loadPresets = async () => {
+    presets = await api('/presets')
+    quickGrid.innerHTML = presets.map((p) => `
+      <div class="quick-card" data-id="${p.id}">
+        <div class="quick-card__head">
+          <span class="quick-card__name">${p.name}</span>
+          ${p.builtin ? '<span class="quick-card__badge">内置</span>' : ''}
+        </div>
+        <span class="quick-card__desc">${p.fields.map((f) => f.label).join(' · ')}</span>
+        <div class="quick-card__ops">
+          <button type="button" class="table__action" data-op="edit">编辑</button>
+          ${p.builtin ? '<button type="button" class="table__action" data-op="reset">重置默认</button>' : '<button type="button" class="table__action table__action--danger" data-op="delete">删除</button>'}
+        </div>
+      </div>
+    `).join('')
+  }
 
-  /* ---------- NEWAPI 快速配置弹窗 ---------- */
+  quickGrid.addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-op]')
+    const card = e.target.closest('.quick-card')
+    if (!card) return
+    const preset = presets.find((p) => p.id === card.dataset.id)
+    if (!preset) return
 
-  const modal = document.getElementById('newapi-modal')
-  const openModal = () => modal.classList.add('is-open')
-  const closeModal = () => modal.classList.remove('is-open')
-
-  document.getElementById('btn-newapi').addEventListener('click', openModal)
-  document.getElementById('m-close').addEventListener('click', closeModal)
-  document.getElementById('m-cancel').addEventListener('click', closeModal)
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) closeModal()
-  })
-
-  document.getElementById('m-confirm').addEventListener('click', () => {
-    const base = document.getElementById('m-base').value.trim().replace(/\/+$/, '')
-    const token = document.getElementById('m-token').value.trim()
-    const user = document.getElementById('m-user').value.trim()
-    if (!base) return setMsg('请填写请求地址', true)
-    if (!token) return setMsg('请填写访问令牌', true)
-
-    const headers = {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-      'User-Agent': 'cc-switch/1.0',
+    if (!btn) {
+      openUseModal(preset)
+      return
     }
-    if (user) headers['New-Api-User'] = user
+    if (btn.dataset.op === 'edit') {
+      openEditModal(preset)
+    } else if (btn.dataset.op === 'reset') {
+      const def = await api(`/presets/${preset.id}/reset`, { method: 'POST' })
+      await loadPresets()
+      setMsg(`已重置 ${def.name} 为默认配置`)
+    } else if (btn.dataset.op === 'delete') {
+      if (!confirm(`确定删除预设「${preset.name}」？`)) return
+      await api(`/presets/${preset.id}`, { method: 'DELETE' })
+      await loadPresets()
+    }
+  })
 
-    document.getElementById('f-url').value = `${base}/api/user/self`
+  /* ---------- 预设使用弹窗 ---------- */
+
+  const useModal = document.getElementById('use-modal')
+  const useFields = document.getElementById('use-fields')
+  let activePreset = null
+
+  const openModal = (el) => el.classList.add('is-open')
+  const closeModal = (el) => el.classList.remove('is-open')
+
+  const openUseModal = (preset) => {
+    activePreset = preset
+    document.getElementById('use-modal-title').textContent = `${preset.name} 快速配置`
+    useFields.innerHTML = preset.fields.map((f) => `
+      <div class="modal__field">
+        <label class="field__label" for="uf-${f.key}">${f.label}</label>
+        <input class="field__input" id="uf-${f.key}" placeholder="${f.placeholder || ''}">
+      </div>
+    `).join('')
+    openModal(useModal)
+  }
+
+  document.getElementById('use-close').addEventListener('click', () => closeModal(useModal))
+  document.getElementById('use-cancel').addEventListener('click', () => closeModal(useModal))
+  useModal.addEventListener('click', (e) => {
+    if (e.target === useModal) closeModal(useModal)
+  })
+
+  document.getElementById('use-confirm').addEventListener('click', () => {
+    const preset = activePreset
+    if (!preset) return
+    const vars = {}
+    for (const f of preset.fields) {
+      vars[f.key] = document.getElementById(`uf-${f.key}`).value.trim()
+    }
+    if (preset.fields.some((f) => /url/i.test(f.key) && !vars[f.key])) {
+      return setMsg(`请填写 ${preset.fields.find((f) => /url/i.test(f.key)).label}`, true)
+    }
+
+    const url = render(preset.urlTemplate, vars)
+    const headers = render(preset.headersTemplate, vars)
+    for (const k of Object.keys(headers)) {
+      if (String(headers[k]).trim() === '') delete headers[k]
+    }
+    const extractor = render(preset.extractorTemplate, vars)
+
+    document.getElementById('f-url').value = url
     headerEditor.setValue(JSON.stringify(headers, null, 2))
-    extractorEditor.setValue('function (data) {\n  return data.data.quota / 500000\n}')
-
-    document.getElementById('m-base').value = ''
-    document.getElementById('m-token').value = ''
-    document.getElementById('m-user').value = ''
-    closeModal()
-    setMsg('已填入 NEWAPI 配置，可修改后保存')
+    extractorEditor.setValue(extractor)
+    closeModal(useModal)
+    setMsg(`已填入 ${preset.name} 配置，可修改后保存`)
     document.getElementById('f-url').scrollIntoView({ behavior: 'smooth', block: 'center' })
   })
+
+  /* ---------- 预设编辑弹窗 ---------- */
+
+  const presetModal = document.getElementById('preset-modal')
+  let editingPresetId = null
+
+  const peHeadersEditor = CodeMirror.fromTextArea(document.getElementById('pe-headers'), {
+    lineNumbers: true,
+    mode: { name: 'javascript', json: true },
+  })
+
+  const peExtractorEditor = CodeMirror.fromTextArea(document.getElementById('pe-extractor'), {
+    lineNumbers: true,
+    mode: 'javascript',
+  })
+
+  const openEditModal = (preset) => {
+    editingPresetId = preset ? preset.id : null
+    document.getElementById('preset-modal-title').textContent = preset ? `编辑预设：${preset.name}` : '添加预设'
+    document.getElementById('pe-name').value = preset ? preset.name : ''
+    document.getElementById('pe-fields').value = preset
+      ? preset.fields.map((f) => [f.key, f.label, f.placeholder].join('=')).join('\n')
+      : 'baseUrl=请求地址=https://your-newapi.example.com'
+    document.getElementById('pe-method').value = preset ? preset.method : 'GET'
+    document.getElementById('pe-url').value = preset ? preset.urlTemplate : ''
+    peHeadersEditor.setValue(preset ? JSON.stringify(preset.headersTemplate, null, 2) : '{\n  "Authorization": "Bearer {{token}}"\n}')
+    peExtractorEditor.setValue(preset ? preset.extractorTemplate : 'function (data) {\n  return data.balance\n}')
+    document.getElementById('pe-reset').hidden = !(preset && preset.builtin)
+    openModal(presetModal)
+  }
+
+  const parseFields = (text) => text.split('\n').map((line) => line.trim()).filter(Boolean).map((line) => {
+    const parts = line.split('=')
+    return { key: parts[0], label: parts[1] || parts[0], placeholder: parts.slice(2).join('=') }
+  })
+
+  document.getElementById('pe-save').addEventListener('click', async () => {
+    let headers
+    try {
+      headers = JSON.parse(peHeadersEditor.getValue() || '{}')
+    } catch {
+      return setMsg('请求头模板必须是合法 JSON', true)
+    }
+    const payload = {
+      name: document.getElementById('pe-name').value,
+      fields: parseFields(document.getElementById('pe-fields').value),
+      method: document.getElementById('pe-method').value,
+      urlTemplate: document.getElementById('pe-url').value,
+      headersTemplate: headers,
+      extractorTemplate: peExtractorEditor.getValue(),
+    }
+    try {
+      if (editingPresetId) {
+        await api(`/presets/${editingPresetId}`, { method: 'PUT', body: JSON.stringify(payload) })
+        setMsg('预设已更新')
+      } else {
+        await api('/presets', { method: 'POST', body: JSON.stringify(payload) })
+        setMsg('预设已添加')
+      }
+      closeModal(presetModal)
+      await loadPresets()
+    } catch (err) {
+      setMsg(`保存失败: ${err.message}`, true)
+    }
+  })
+
+  document.getElementById('pe-reset').addEventListener('click', async () => {
+    if (!editingPresetId) return
+    const def = await api(`/presets/${editingPresetId}/reset`, { method: 'POST' })
+    openEditModal(def)
+    setMsg('已重置为默认配置，可修改后保存')
+  })
+
+  document.getElementById('pe-close').addEventListener('click', () => closeModal(presetModal))
+  document.getElementById('pe-cancel').addEventListener('click', () => closeModal(presetModal))
+  presetModal.addEventListener('click', (e) => {
+    if (e.target === presetModal) closeModal(presetModal)
+  })
+
+  document.getElementById('btn-add-preset').addEventListener('click', () => openEditModal(null))
 
   /* ---------- 请求体开关 ---------- */
 
@@ -379,6 +519,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   })
 
+  loadPresets()
   loadPlatforms()
   loadDashboard()
 })
