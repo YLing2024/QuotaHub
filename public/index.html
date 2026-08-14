@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QuotaHub</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <header class="header">
+    <div class="header__brand">
+      <span class="header__mark">QH</span>
+      <h1 class="header__title">QUOTAHUB</h1>
+    </div>
+    <nav class="header__nav" id="tab-nav">
+      <button class="header__link is-active" data-tab="dashboard">监控面板</button>
+      <button class="header__link" data-tab="config">平台配置</button>
+    </nav>
+    <div class="header__status">
+      <span class="dot"></span>
+      <span>系统正常</span>
+    </div>
+  </header>
+
+  <main class="main">
+
+    <!-- ========== TAB: 监控面板 ========== -->
+    <div class="tab is-active" id="tab-dashboard">
+
+      <section class="hero">
+        <div class="hero__meta">LLM PLATFORM · BALANCE MONITOR</div>
+        <h2 class="hero__title">LLM 平台余额监控</h2>
+        <div class="hero__line"></div>
+        <p class="hero__desc">
+          统一监控各 LLM 平台的配额与余额，低余额自动告警。<br>
+          平台数据抓取功能建设中。
+        </p>
+      </section>
+
+      <section class="section">
+        <div class="section__head">
+          <h3 class="section__title">平台余额总览</h3>
+          <span class="section__note" id="last-update">LAST UPDATE —</span>
+        </div>
+        <div class="section__actions">
+          <button class="btn" id="btn-refresh">立即刷新</button>
+        </div>
+        <div class="grid" id="platform-grid"></div>
+      </section>
+
+    </div>
+
+    <!-- ========== TAB: 平台配置 ========== -->
+    <div class="tab" id="tab-config">
+
+      <section class="hero hero--small">
+        <div class="hero__meta">PLATFORM · CONFIGURATION</div>
+        <h2 class="hero__title">平台配置</h2>
+        <div class="hero__line"></div>
+        <p class="hero__desc">添加需要监控的 LLM 平台，填写凭据与余额接口信息。<br>配置保存功能建设中。</p>
+      </section>
+
+      <section class="section">
+        <div class="section__head">
+          <h3 class="section__title">添加平台</h3>
+          <span class="section__note">NEW PLATFORM</span>
+        </div>
+
+        <form class="form" id="platform-form">
+          <div class="form__row">
+            <div class="field">
+              <label class="field__label" for="f-name">平台名称</label>
+              <input class="field__input" id="f-name" placeholder="OPENAI">
+            </div>
+            <div class="field">
+              <label class="field__label" for="f-template">预置模板</label>
+              <select class="field__input" id="f-template">
+                <option value="">选择模板（可自定义）</option>
+              </select>
+              <span class="field__hint" id="f-template-note"></span>
+            </div>
+          </div>
+          <div class="form__row">
+            <div class="field">
+              <label class="field__label" for="f-key">API Key</label>
+              <input class="field__input" id="f-key" type="password" placeholder="sk-••••••••">
+            </div>
+            <div class="field">
+              <label class="field__label" for="f-method">请求方法</label>
+              <select class="field__input" id="f-method">
+                <option>GET</option>
+                <option>POST</option>
+              </select>
+            </div>
+          </div>
+          <div class="form__row">
+            <div class="field field--wide">
+              <label class="field__label" for="f-base">请求 URL</label>
+              <input class="field__input" id="f-base" placeholder="https://api.deepseek.com/user/balance">
+            </div>
+          </div>
+          <div class="form__row">
+            <div class="field field--wide">
+              <label class="field__label" for="f-headers">请求头（JSON，支持 {{apiKey}}）</label>
+              <input class="field__input" id="f-headers" placeholder='{"Authorization": "Bearer {{apiKey}}"}'>
+            </div>
+          </div>
+          <div class="form__row">
+            <div class="field">
+              <label class="field__label" for="f-path">余额响应路径</label>
+              <input class="field__input" id="f-path" placeholder="data.balance[0].total_balance">
+            </div>
+            <div class="field">
+              <label class="field__label" for="f-currency">货币单位</label>
+              <select class="field__input" id="f-currency">
+                <option>USD</option>
+                <option>CNY</option>
+              </select>
+            </div>
+          </div>
+          <div class="form__row">
+            <div class="field">
+              <label class="field__label" for="f-threshold">余额告警阈值</label>
+              <input class="field__input" id="f-threshold" placeholder="10.00">
+            </div>
+            <div class="field field--check">
+              <label class="check">
+                <input type="checkbox" id="f-enabled" checked>
+                <span>启用监控</span>
+              </label>
+            </div>
+          </div>
+          <div class="form__actions">
+            <button type="submit" class="btn">保存配置</button>
+            <span class="form__msg" id="form-msg"></span>
+          </div>
+        </form>
+      </section>
+
+      <section class="section">
+        <div class="section__head">
+          <h3 class="section__title">已配置平台</h3>
+          <span class="section__note">CONFIGURED · 0</span>
+        </div>
+
+        <table class="table">
+          <thead>
+            <tr>
+              <th>平台</th>
+              <th>URL</th>
+              <th>货币</th>
+              <th>告警阈值</th>
+              <th>状态</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="platform-table-body">
+            <tr class="table__empty">
+              <td colspan="6">尚未配置任何平台</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+    </div>
+
+  </main>
+
+  <footer class="footer">
+    <span>QUOTAHUB © 2026</span>
+    <span>OPEN SOURCE · MIT LICENSE</span>
+  </footer>
+
+  <script src="js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,243 @@
+const API = '/api/platforms'
+
+async function api(path, options) {
+  const res = await fetch(`${API}${path}`, {
+    headers: { 'Content-Type': 'application/json' },
+    ...options,
+  })
+  if (res.status === 204) return null
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`)
+  return data
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  /* ---------- Tabs ---------- */
+
+  const nav = document.getElementById('tab-nav')
+  const switchTab = (name) => {
+    document.querySelectorAll('.header__link').forEach((btn) => {
+      btn.classList.toggle('is-active', btn.dataset.tab === name)
+    })
+    document.querySelectorAll('.tab').forEach((tab) => {
+      tab.classList.toggle('is-active', tab.id === `tab-${name}`)
+    })
+  }
+  nav.addEventListener('click', (e) => {
+    const btn = e.target.closest('.header__link')
+    if (btn) switchTab(btn.dataset.tab)
+  })
+
+  /* ---------- 监控面板 ---------- */
+
+  const grid = document.getElementById('platform-grid')
+  const lastUpdate = document.getElementById('last-update')
+  const btnRefresh = document.getElementById('btn-refresh')
+
+  const fmt = (v) => {
+    if (v == null) return '—'
+    const n = Number(v)
+    if (Number.isNaN(n)) return v
+    return n % 1 === 0 ? n.toString() : n.toFixed(2)
+  }
+
+  const renderDashboard = (data) => {
+    lastUpdate.textContent = `LAST UPDATE — ${data.updatedAt ? new Date(data.updatedAt).toLocaleString('zh-CN') : '—'}`
+    const items = data.platforms || []
+    grid.innerHTML = items.length
+      ? items.map((p) => {
+          const low = p.balance != null && Number(p.balance) <= Number(p.threshold)
+          return `
+          <article class="card ${p.balance == null ? 'card--empty' : ''}">
+            <div class="card__top">
+              <span class="card__platform">${p.name}</span>
+              <span class="card__tag ${low ? 'tag--warn' : ''}">${low ? '低余额' : p.enabled ? '正常' : '停用'}</span>
+            </div>
+            <div class="card__balance">${fmt(p.balance)}</div>
+            <div class="card__foot">${p.unit || p.currency} · 阈值 ${fmt(p.threshold)}</div>
+          </article>`
+        }).join('')
+      : '<div class="card card--empty"><div class="card__platform">尚未配置平台</div></div>'
+  }
+
+  const loadDashboard = async () => {
+    try {
+      renderDashboard(await api('/balances'))
+    } catch (e) {
+      renderDashboard({ platforms: [] })
+    }
+  }
+
+  btnRefresh.addEventListener('click', async () => {
+    btnRefresh.disabled = true
+    btnRefresh.textContent = '刷新中…'
+    try {
+      await api('/refresh', { method: 'POST' })
+      await loadDashboard()
+    } catch (e) {
+      lastUpdate.textContent = `LAST UPDATE — 刷新失败: ${e.message}`
+    } finally {
+      btnRefresh.disabled = false
+      btnRefresh.textContent = '立即刷新'
+    }
+  })
+
+  /* ---------- 平台配置 ---------- */
+
+  const form = document.getElementById('platform-form')
+  const formMsg = document.getElementById('form-msg')
+  const tplSelect = document.getElementById('f-template')
+  const tplNote = document.getElementById('f-template-note')
+
+  let templates = []
+
+  const setMsg = (text, isError) => {
+    formMsg.textContent = text
+    formMsg.classList.toggle('is-error', Boolean(isError))
+  }
+
+  const fillTemplate = (tpl) => {
+    if (!tpl) return
+    document.getElementById('f-method').value = tpl.request.method || 'GET'
+    document.getElementById('f-base').value = tpl.request.url || ''
+    document.getElementById('f-headers').value = JSON.stringify(tpl.request.headers || {})
+    document.getElementById('f-path').value = tpl.response.path || ''
+    document.getElementById('f-currency').value = tpl.response.unit || 'USD'
+    tplNote.textContent = tpl.note || ''
+  }
+
+  const loadTemplates = async () => {
+    templates = await api('/templates')
+    templates.forEach((t) => {
+      const opt = document.createElement('option')
+      opt.value = t.id
+      opt.textContent = t.name
+      tplSelect.appendChild(opt)
+    })
+  }
+
+  tplSelect.addEventListener('change', () => {
+    const tpl = templates.find((t) => t.id === tplSelect.value)
+    if (tpl) fillTemplate(tpl)
+    else tplNote.textContent = ''
+  })
+
+  const readForm = () => {
+    let headers = {}
+    try {
+      headers = JSON.parse(document.getElementById('f-headers').value || '{}')
+    } catch {
+      throw new Error('请求头必须是合法 JSON')
+    }
+    return {
+      name: document.getElementById('f-name').value,
+      template: tplSelect.value || 'custom',
+      apiKey: document.getElementById('f-key').value,
+      request: {
+        method: document.getElementById('f-method').value,
+        url: document.getElementById('f-base').value,
+        headers,
+      },
+      response: {
+        path: document.getElementById('f-path').value,
+        unit: document.getElementById('f-currency').value,
+      },
+      threshold: Number(document.getElementById('f-threshold').value) || 0,
+      enabled: document.getElementById('f-enabled').checked,
+    }
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault()
+    setMsg('')
+    let payload
+    try {
+      payload = readForm()
+    } catch (err) {
+      setMsg(err.message, true)
+      return
+    }
+    try {
+      const created = await api('/', { method: 'POST', body: JSON.stringify(payload) })
+      setMsg(`已保存: ${created.name}`)
+      form.reset()
+      tplSelect.value = ''
+      tplNote.textContent = ''
+      await loadPlatforms()
+      await loadDashboard()
+    } catch (err) {
+      setMsg(`保存失败: ${err.message}`, true)
+    }
+  })
+
+  const tbody = document.getElementById('platform-table-body')
+  const tplCount = document.querySelector('.section__note')
+
+  const renderPlatforms = (list) => {
+    tplCount.textContent = `CONFIGURED · ${list.length}`
+    if (!list.length) {
+      tbody.innerHTML = '<tr class="table__empty"><td colspan="6">尚未配置任何平台</td></tr>'
+      return
+    }
+    tbody.innerHTML = list.map((p) => `
+      <tr data-id="${p.id}">
+        <td>${p.name}</td>
+        <td>${p.request.url || '—'}</td>
+        <td>${p.currency}</td>
+        <td>${p.threshold}</td>
+        <td><span class="tag ${p.enabled ? 'tag--on' : 'tag--off'}">${p.enabled ? '启用' : '停用'}</span></td>
+        <td>
+          <button class="table__action" data-act="test">测试连接</button>
+          <button class="table__action" data-act="fetch">获取余额</button>
+          <button class="table__action table__action--danger" data-act="delete">删除</button>
+          <span class="table__msg" data-msg></span>
+        </td>
+      </tr>
+    `).join('')
+  }
+
+  const loadPlatforms = async () => {
+    try {
+      renderPlatforms(await api(''))
+    } catch (e) {
+      tbody.innerHTML = `<tr class="table__empty"><td colspan="6">加载失败: ${e.message}</td></tr>`
+    }
+  }
+
+  tbody.addEventListener('click', async (e) => {
+    const btn = e.target.closest('.table__action')
+    if (!btn) return
+    const row = btn.closest('tr')
+    const id = row.dataset.id
+    const msgEl = row.querySelector('[data-msg]')
+    msgEl.textContent = ''
+    msgEl.classList.remove('is-error')
+
+    try {
+      if (btn.dataset.act === 'test') {
+        msgEl.textContent = '测试中…'
+        const r = await api(`/${id}/test`, { method: 'POST' })
+        msgEl.textContent = r.ok ? `成功: ${r.value} ${r.unit}` : `失败: ${r.error}`
+        if (!r.ok) msgEl.classList.add('is-error')
+      } else if (btn.dataset.act === 'fetch') {
+        msgEl.textContent = '获取中…'
+        const r = await api(`/${id}/fetch`, { method: 'POST' })
+        msgEl.textContent = r.ok ? `已获取: ${r.value} ${r.unit}` : `失败: ${r.error}`
+        if (!r.ok) msgEl.classList.add('is-error')
+        await loadDashboard()
+      } else if (btn.dataset.act === 'delete') {
+        if (!confirm(`确定删除平台「${row.firstElementChild.textContent}」？`)) return
+        await api(`/${id}`, { method: 'DELETE' })
+        await loadPlatforms()
+        await loadDashboard()
+      }
+    } catch (err) {
+      msgEl.textContent = err.message
+      msgEl.classList.add('is-error')
+    }
+  })
+
+  loadTemplates()
+  loadPlatforms()
+  loadDashboard()
+})
