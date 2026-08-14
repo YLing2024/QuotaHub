@@ -1,13 +1,14 @@
+const path = require('path')
 const express = require('express')
+const platformsRouter = require('./routes/platforms')
 
 const app = express()
 const PORT = process.env.PORT || 3000
 
 app.use(express.json())
+app.use(express.static(path.join(__dirname, '..', 'public')))
 
-app.get('/', (req, res) => {
-  res.json({ name: 'QuotaHub', message: 'LLM 平台余额监控工具' })
-})
+app.use('/api/platforms', platformsRouter)
 
 app.listen(PORT, () => {
   console.log(`QuotaHub 已启动: http://localhost:${PORT}`)
