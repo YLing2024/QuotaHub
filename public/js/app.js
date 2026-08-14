@@ -302,7 +302,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setMsg('已重置为默认配置，可修改后保存')
   })
 
-  document.getElementById('pe-close').addEventListener('click', () => closeModal(presetModal))
+  document.getElementById('preset-close').addEventListener('click', () => closeModal(presetModal))
   document.getElementById('pe-cancel').addEventListener('click', () => closeModal(presetModal))
   presetModal.addEventListener('click', (e) => {
     if (e.target === presetModal) closeModal(presetModal)
