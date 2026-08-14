@@ -1,7 +1,5 @@
-const API = '/api/platforms'
-
 async function api(path, options) {
-  const res = await fetch(`${API}${path}`, {
+  const res = await fetch(path, {
     headers: { 'Content-Type': 'application/json' },
     ...options,
   })
@@ -65,7 +63,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const loadDashboard = async () => {
     try {
-      renderDashboard(await api('/balances'))
+      renderDashboard(await api('/api/platforms/balances'))
     } catch (e) {
       renderDashboard({ platforms: [] })
     }
@@ -75,7 +73,7 @@ document.addEventListener('DOMContentLoaded', () => {
     btnRefresh.disabled = true
     btnRefresh.textContent = '刷新中…'
     try {
-      await api('/refresh', { method: 'POST' })
+      await api('/api/platforms/refresh', { method: 'POST' })
       await loadDashboard()
     } catch (e) {
       lastUpdate.textContent = `LAST UPDATE — 刷新失败: ${e.message}`
@@ -139,7 +137,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   const loadPresets = async () => {
-    presets = await api('/presets')
+    presets = await api('/api/presets')
     quickGrid.innerHTML = presets.map((p) => `
       <div class="quick-card" data-id="${p.id}">
         <div class="quick-card__head">
@@ -169,12 +167,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btn.dataset.op === 'edit') {
       openEditModal(preset)
     } else if (btn.dataset.op === 'reset') {
-      const def = await api(`/presets/${preset.id}/reset`, { method: 'POST' })
+      const def = await api(`/api/presets/${preset.id}/reset`, { method: 'POST' })
       await loadPresets()
       setMsg(`已重置 ${def.name} 为默认配置`)
     } else if (btn.dataset.op === 'delete') {
       if (!confirm(`确定删除预设「${preset.name}」？`)) return
-      await api(`/presets/${preset.id}`, { method: 'DELETE' })
+      await api(`/api/presets/${preset.id}`, { method: 'DELETE' })
       await loadPresets()
     }
   })
@@ -284,10 +282,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     try {
       if (editingPresetId) {
-        await api(`/presets/${editingPresetId}`, { method: 'PUT', body: JSON.stringify(payload) })
+        await api(`/api/presets/${editingPresetId}`, { method: 'PUT', body: JSON.stringify(payload) })
         setMsg('预设已更新')
       } else {
-        await api('/presets', { method: 'POST', body: JSON.stringify(payload) })
+        await api('/api/presets', { method: 'POST', body: JSON.stringify(payload) })
         setMsg('预设已添加')
       }
       closeModal(presetModal)
@@ -299,7 +297,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('pe-reset').addEventListener('click', async () => {
     if (!editingPresetId) return
-    const def = await api(`/presets/${editingPresetId}/reset`, { method: 'POST' })
+    const def = await api(`/api/presets/${editingPresetId}/reset`, { method: 'POST' })
     openEditModal(def)
     setMsg('已重置为默认配置，可修改后保存')
   })
@@ -396,7 +394,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return
     }
     try {
-      const r = await api('/validate', { method: 'POST', body: JSON.stringify(payload) })
+      const r = await api('/api/platforms/validate', { method: 'POST', body: JSON.stringify(payload) })
       if (r.ok) {
         setMsg(`验证成功: ${fmt(r.value)}`)
       } else {
@@ -424,7 +422,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const url = editingId ? `/${editingId}` : '/'
       const method = editingId ? 'PUT' : 'POST'
-      const saved = await api(url, { method, body: JSON.stringify(payload) })
+      const saved = await api(`/api/platforms${url}`, { method, body: JSON.stringify(payload) })
       setMsg(editingId ? `已更新: ${saved.name}` : `已保存: ${saved.name}`)
       setEditing(null)
       clearForm()
@@ -469,7 +467,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const loadPlatforms = async () => {
     try {
-      platformsCache = await api('')
+      platformsCache = await api('/api/platforms')
       renderPlatforms(platformsCache)
     } catch (e) {
       tbody.innerHTML = `<tr class="table__empty"><td colspan="3">加载失败: ${e.message}</td></tr>`
@@ -498,18 +496,18 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       if (btn.dataset.act === 'test') {
         msgEl.textContent = '测试中…'
-        const r = await api(`/${id}/test`, { method: 'POST' })
+        const r = await api(`/api/platforms/${id}/test`, { method: 'POST' })
         msgEl.textContent = r.ok ? `成功: ${fmt(r.value)}` : `失败: ${r.error}`
         if (!r.ok) msgEl.classList.add('is-error')
       } else if (btn.dataset.act === 'fetch') {
         msgEl.textContent = '获取中…'
-        const r = await api(`/${id}/fetch`, { method: 'POST' })
+        const r = await api(`/api/platforms/${id}/fetch`, { method: 'POST' })
         msgEl.textContent = r.ok ? `已获取: ${fmt(r.value)}` : `失败: ${r.error}`
         if (!r.ok) msgEl.classList.add('is-error')
         await loadDashboard()
       } else if (btn.dataset.act === 'delete') {
         if (!confirm(`确定删除平台「${row.firstElementChild.textContent}」？`)) return
-        await api(`/${id}`, { method: 'DELETE' })
+        await api(`/api/platforms/${id}`, { method: 'DELETE' })
         await loadPlatforms()
         await loadDashboard()
       }
