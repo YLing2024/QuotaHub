@@ -39,9 +39,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const fmt = (v) => {
     if (v == null) return '—'
+    if (typeof v === 'object') return JSON.stringify(v)
     const n = Number(v)
     if (Number.isNaN(n)) return v
     return n % 1 === 0 ? n.toString() : n.toFixed(2)
+  }
+
+  const formatValue = (v) => {
+    if (v === undefined || v === null) return '（无返回值）'
+    if (typeof v === 'object') return JSON.stringify(v, null, 2)
+    if (typeof v === 'number' && Number.isNaN(v)) return '（NaN，请检查提取函数）'
+    return String(v)
   }
 
   const renderDashboard = (data) => {
@@ -116,6 +124,12 @@ document.addEventListener('DOMContentLoaded', () => {
     lineNumbers: true,
     mode: 'javascript',
     extraKeys: { 'Ctrl-Enter': () => document.getElementById('btn-validate').click() },
+  })
+
+  const verifyEditor = CodeMirror.fromTextArea(document.getElementById('verify-output'), {
+    lineNumbers: true,
+    mode: { name: 'javascript', json: true },
+    readOnly: true,
   })
 
   /* ---------- 快速配置预设 ---------- */
@@ -384,23 +398,28 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnValidate = document.getElementById('btn-validate')
   btnValidate.addEventListener('click', async () => {
     setMsg('验证中…')
+    verifyEditor.setValue('验证中…')
     btnValidate.disabled = true
     let payload
     try {
       payload = readForm()
     } catch (err) {
       setMsg(err.message, true)
+      verifyEditor.setValue(`配置错误：${err.message}`)
       btnValidate.disabled = false
       return
     }
     try {
       const r = await api('/api/platforms/validate', { method: 'POST', body: JSON.stringify(payload) })
       if (r.ok) {
-        setMsg(`验证成功: ${fmt(r.value)}`)
+        verifyEditor.setValue(formatValue(r.value))
+        setMsg('验证成功')
       } else {
-        setMsg(`验证失败: ${r.error}`, true)
+        verifyEditor.setValue(`请求失败：${r.error}`)
+        setMsg('验证失败', true)
       }
     } catch (err) {
+      verifyEditor.setValue(`验证失败：${err.message}`)
       setMsg(`验证失败: ${err.message}`, true)
     } finally {
       btnValidate.disabled = false
