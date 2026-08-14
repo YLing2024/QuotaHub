@@ -51,15 +51,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const items = data.platforms || []
     grid.innerHTML = items.length
       ? items.map((p) => `
-          <article class="card ${p.balance == null ? 'card--empty' : ''}">
+          <article class="card ${p.balance == null ? 'card--empty' : ''} ${p.error ? 'card--error' : ''}">
             <div class="card__top">
               <span class="card__platform">${p.name}</span>
-              <span class="card__tag">${p.balance == null ? '待获取' : '已获取'}</span>
+              <span class="card__tag ${p.error ? 'tag--warn' : ''}">${p.error ? '获取失败' : p.balance == null ? '待获取' : '已获取'}</span>
             </div>
             <div class="card__balance">
               <span class="card__affix">${p.prefix}</span>${fmt(p.balance)}<span class="card__affix">${p.suffix}</span>
             </div>
-            <div class="card__foot">${p.fetchedAt ? `获取于 ${new Date(p.fetchedAt).toLocaleString('zh-CN')}` : '尚未获取'}</div>
+            <div class="card__foot ${p.error ? 'card__foot--error' : ''}">${p.error || (p.fetchedAt ? `获取于 ${new Date(p.fetchedAt).toLocaleString('zh-CN')}` : '尚未获取')}</div>
           </article>`
         ).join('')
       : '<div class="card card--empty"><div class="card__platform">尚未配置平台</div></div>'
@@ -91,22 +91,58 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const form = document.getElementById('platform-form')
   const formMsg = document.getElementById('form-msg')
+  const btnSave = document.getElementById('btn-save')
+  const btnCancelEdit = document.getElementById('btn-cancel-edit')
+  let editingId = null
+  let platformsCache = []
 
-  /* ---------- 子 Tab: 预设类型 ---------- */
+  const setEditing = (id, name) => {
+    editingId = id
+    btnSave.textContent = id ? '更新配置' : '保存配置'
+    btnCancelEdit.hidden = !id
+    setMsg(id ? `正在编辑：${name}` : '')
+  }
 
-  let preset = 'newapi'
+  const switchPreset = (name) => {
+    preset = name
+    document.querySelectorAll('.preset-tab').forEach((b) => {
+      b.classList.toggle('is-active', b.dataset.preset === name)
+    })
+    document.querySelectorAll('.preset-panel').forEach((panel) => {
+      panel.classList.toggle('is-active', panel.dataset.panel === name)
+    })
+  }
 
   document.getElementById('preset-tabs').addEventListener('click', (e) => {
     const btn = e.target.closest('.preset-tab')
-    if (!btn) return
-    preset = btn.dataset.preset
-    document.querySelectorAll('.preset-tab').forEach((b) => {
-      b.classList.toggle('is-active', b === btn)
-    })
-    document.querySelectorAll('.preset-panel').forEach((panel) => {
-      panel.classList.toggle('is-active', panel.dataset.panel === preset)
-    })
+    if (btn) switchPreset(btn.dataset.preset)
   })
+
+  const fillForm = (p) => {
+    switchPreset(p.preset === 'newapi' ? 'newapi' : 'custom')
+    if (p.preset === 'newapi') {
+      const headers = p.request.headers || {}
+      const base = (p.request.url || '').replace(/\/api\/user\/self$/, '')
+      document.getElementById('n-name').value = p.name || ''
+      document.getElementById('n-base').value = base
+      document.getElementById('n-user').value = headers['New-Api-User'] || ''
+      document.getElementById('n-token').value = (headers.Authorization || '').replace(/^Bearer\s+/i, '')
+      document.getElementById('n-divider').value = p.response && p.response.divider ? p.response.divider : '500000'
+      document.getElementById('n-prefix').value = (p.response && p.response.prefix) || ''
+      document.getElementById('n-suffix').value = (p.response && p.response.suffix) || ''
+    } else {
+      document.getElementById('f-name').value = p.name || ''
+      methodSelect.value = p.request.method || 'GET'
+      document.getElementById('f-base').value = p.request.url || ''
+      document.getElementById('f-headers').value = JSON.stringify(p.request.headers || {}, null, 0)
+      document.getElementById('f-body').value = p.request.body ? JSON.stringify(p.request.body) : ''
+      document.getElementById('f-path').value = (p.response && p.response.path) || ''
+      document.getElementById('f-prefix').value = (p.response && p.response.prefix) || ''
+      document.getElementById('f-suffix').value = (p.response && p.response.suffix) || ''
+      toggleBody()
+    }
+    form.scrollIntoView({ behavior: 'smooth' })
+  }
 
   const setMsg = (text, isError) => {
     formMsg.textContent = text
@@ -127,18 +163,26 @@ document.addEventListener('DOMContentLoaded', () => {
       const base = document.getElementById('n-base').value.trim().replace(/\/+$/, '')
       const userId = document.getElementById('n-user').value.trim()
       const token = document.getElementById('n-token').value.trim()
+      const divider = Number(document.getElementById('n-divider').value)
       if (!base) throw new Error('请填写请求地址')
       if (!token) throw new Error('请填写访问令牌')
+      const headers = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+        'User-Agent': 'cc-switch/1.0',
+      }
+      if (userId) headers['New-Api-User'] = userId
       return {
         name: document.getElementById('n-name').value,
         preset: 'newapi',
         request: {
           method: 'GET',
-          url: `${base}/api/user/${userId || 'self'}`,
-          headers: { Authorization: `Bearer ${token}` },
+          url: `${base}/api/user/self`,
+          headers,
         },
         response: {
           path: 'data.quota',
+          divider: divider > 0 ? divider : undefined,
           prefix: document.getElementById('n-prefix').value,
           suffix: document.getElementById('n-suffix').value,
         },
@@ -177,6 +221,33 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  const btnValidate = document.getElementById('btn-validate')
+  btnValidate.addEventListener('click', async () => {
+    setMsg('验证中…')
+    btnValidate.disabled = true
+    let payload
+    try {
+      payload = readForm()
+    } catch (err) {
+      setMsg(err.message, true)
+      btnValidate.disabled = false
+      return
+    }
+    try {
+      const r = await api('/validate', { method: 'POST', body: JSON.stringify(payload) })
+      if (r.ok) {
+        const affix = `${r.value} ${payload.response.prefix || ''}${payload.response.suffix || ''}`.trim()
+        setMsg(`验证成功: ${affix}`)
+      } else {
+        setMsg(`验证失败: ${r.error}`, true)
+      }
+    } catch (err) {
+      setMsg(`验证失败: ${err.message}`, true)
+    } finally {
+      btnValidate.disabled = false
+    }
+  })
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault()
     setMsg('')
@@ -188,15 +259,27 @@ document.addEventListener('DOMContentLoaded', () => {
       return
     }
     try {
-      const created = await api('/', { method: 'POST', body: JSON.stringify(payload) })
-      setMsg(`已保存: ${created.name}`)
+      const url = editingId ? `/${editingId}` : '/'
+      const method = editingId ? 'PUT' : 'POST'
+      const saved = await api(url, { method, body: JSON.stringify(payload) })
+      setMsg(editingId ? `已更新: ${saved.name}` : `已保存: ${saved.name}`)
+      setEditing(null)
       form.reset()
       toggleBody()
+      switchPreset('newapi')
       await loadPlatforms()
       await loadDashboard()
     } catch (err) {
       setMsg(`保存失败: ${err.message}`, true)
     }
+  })
+
+  btnCancelEdit.addEventListener('click', () => {
+    setEditing(null)
+    form.reset()
+    toggleBody()
+    switchPreset('newapi')
+    setMsg('')
   })
 
   const tbody = document.getElementById('platform-table-body')
@@ -216,6 +299,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <td>${p.response.prefix || '—'}</td>
         <td>${p.response.suffix || '—'}</td>
         <td>
+          <button class="table__action" data-act="edit">编辑</button>
           <button class="table__action" data-act="test">测试连接</button>
           <button class="table__action" data-act="fetch">获取余额</button>
           <button class="table__action table__action--danger" data-act="delete">删除</button>
@@ -227,7 +311,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const loadPlatforms = async () => {
     try {
-      renderPlatforms(await api(''))
+      platformsCache = await api('')
+      renderPlatforms(platformsCache)
     } catch (e) {
       tbody.innerHTML = `<tr class="table__empty"><td colspan="6">加载失败: ${e.message}</td></tr>`
     }
@@ -241,6 +326,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const msgEl = row.querySelector('[data-msg]')
     msgEl.textContent = ''
     msgEl.classList.remove('is-error')
+
+    if (btn.dataset.act === 'edit') {
+      const p = platformsCache.find((x) => x.id === id)
+      if (p) {
+        fillForm(p)
+        setEditing(id, p.name)
+        switchTab('config')
+      }
+      return
+    }
 
     try {
       if (btn.dataset.act === 'test') {

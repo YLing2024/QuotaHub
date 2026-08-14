@@ -549,6 +549,15 @@ a {
   color: var(--gray);
   border-top: 1px solid var(--gray-light);
   padding-top: 12px;
+  word-break: break-all;
+}
+
+.card__foot--error {
+  color: var(--red);
+}
+
+.card--error {
+  border-color: var(--red);
 }
 
 .card--empty .card__balance {
