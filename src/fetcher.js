@@ -4,7 +4,7 @@ const TIMEOUT_MS = 15000
 const EXTRACT_TIMEOUT_MS = 2000
 
 const FORBIDDEN_FN = /\b(new\s+Function|Function\s*\()/
-const FORBIDDEN = /\b(require|import\s*\(|import\b|process|module|exports|globalThis|\bglobal\b|window|document|fetch|XMLHttpRequest|WebSocket|\beval\b|constructor|__proto__|prototype|child_process|exec|spawn|node:)/i
+const FORBIDDEN = /\b(require|import\s*\(|import\b|process|module|exports|globalThis|\bglobal\b|window|document|fetch|XMLHttpRequest|WebSocket|\beval\b|constructor|__proto__|prototype|child_process|exec|spawn|node:|\bthis\b|setPrototypeOf|getPrototypeOf|defineProperty|defineProperties|__defineGetter__|__defineSetter__|__lookupGetter__|__lookupSetter__|Reflect|Proxy)/i
 
 const ALLOWED_TOP_LEVEL = new Set([
   'data',
@@ -51,7 +51,6 @@ const ALLOWED_TOP_LEVEL = new Set([
   'new',
   'delete',
   'void',
-  'this',
   'true',
   'false',
   'null',
@@ -71,7 +70,10 @@ function checkTopLevelWhitelist(code) {
     .replace(/\/\*[\s\S]*?\*\//g, ' ')
     .replace(/\/\/[^\n\r]*/g, ' ')
     .replace(/'(?:\\.|[^'\\\n])*'|"(?:\\.|[^"\\\n])*"/g, '""')
-    .replace(/`(?:\\.|[^`\\])*`/g, '``')
+    .replace(/`(?:\\.|[^`\\])*`/g, (m) => {
+      const exprs = [...m.matchAll(/\$\{([\s\S]*?)\}/g)].map((x) => x[1])
+      return exprs.length ? exprs.join(' ; ') : '``'
+    })
 
   const declared = new Set()
   for (const m of stripped.matchAll(/\b(?:var|let|const)\s+([A-Za-z_$][\w$]*)/g)) {
@@ -96,12 +98,17 @@ function checkTopLevelWhitelist(code) {
   const tokens = stripped.match(/[A-Za-z_$][\w$]*/g) || []
   for (const t of tokens) {
     if (ALLOWED_TOP_LEVEL.has(t) || declared.has(t)) continue
-    const idx = stripped.indexOf(t)
-    const before = stripped.slice(0, idx).trimEnd()
-    const prevChar = before ? before[before.length - 1] : ''
-    if (prevChar === '.' || prevChar === '[' || prevChar === ']' || prevChar === ',') {
-      continue
+    let idx = -1
+    let propOnly = true
+    while ((idx = stripped.indexOf(t, idx + 1)) !== -1) {
+      const before = stripped.slice(0, idx).trimEnd()
+      const prevChar = before ? before[before.length - 1] : ''
+      if (!(prevChar === '.' || prevChar === '[' || prevChar === ']' || prevChar === ',')) {
+        propOnly = false
+        break
+      }
     }
+    if (propOnly) continue
     throw new Error(`使用了白名单外的标识符: ${t}`)
   }
 }
