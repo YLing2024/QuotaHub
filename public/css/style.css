@@ -286,6 +286,27 @@ a {
   gap: 18px;
 }
 
+.modal__box--wide {
+  width: 640px;
+  max-height: calc(100vh - 64px);
+  overflow-y: auto;
+}
+
+.modal__row {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 14px;
+}
+
+.field__input--area {
+  height: auto;
+  padding: 10px 12px;
+  font-family: Consolas, "SFMono-Regular", Menlo, monospace;
+  font-size: 12px;
+  resize: vertical;
+  line-height: 1.6;
+}
+
 .modal__head {
   display: flex;
   align-items: center;
@@ -572,10 +593,26 @@ a {
   border-color: var(--red);
 }
 
+.quick-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .quick-card__name {
   font-size: 14px;
   font-weight: 700;
   letter-spacing: 2px;
+}
+
+.quick-card__badge {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  border: 1px solid var(--black);
+  color: var(--gray);
+  padding: 2px 6px;
 }
 
 .quick-card__desc {
@@ -583,6 +620,19 @@ a {
   color: var(--gray);
   letter-spacing: 1px;
   line-height: 1.6;
+}
+
+.quick-card__ops {
+  border-top: 1px solid var(--gray-light);
+  padding-top: 10px;
+  display: flex;
+  gap: 14px;
+}
+
+.section__head-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
 }
 
 .section__actions {
