@@ -15,6 +15,7 @@
   "license": "MIT",
   "type": "commonjs",
   "dependencies": {
+    "codemirror": "^5.65.21",
     "express": "^5.2.1"
   },
   "devDependencies": {

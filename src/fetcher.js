@@ -1,4 +1,10 @@
+const vm = require('vm')
+
 const TIMEOUT_MS = 15000
+const EXTRACT_TIMEOUT_MS = 2000
+
+const FORBIDDEN_FN = /\b(new\s+Function|Function\s*\()/
+const FORBIDDEN = /\b(require|import\s*\(|import\b|process|module|exports|globalThis|\bglobal\b|window|document|fetch|XMLHttpRequest|WebSocket|\beval\b|constructor|__proto__|prototype|child_process|exec|spawn|node:)/i
 
 function resolvePath(obj, pathExpr) {
   const segments = String(pathExpr)
@@ -22,9 +28,46 @@ function toNumber(v) {
   return v
 }
 
-function buildBody(request) {
-  if (!request.body) return undefined
-  return typeof request.body === 'string' ? request.body : JSON.stringify(request.body)
+function runExtractor(src, data) {
+  const code = String(src || '').trim()
+  if (!code) throw new Error('未配置提取函数')
+  let bad = null
+  const fnHit = FORBIDDEN_FN.exec(code)
+  const hit = FORBIDDEN.exec(code)
+  if (fnHit) bad = fnHit[0]
+  else if (hit) bad = hit[0]
+  if (bad) {
+    throw new Error(`提取函数包含禁止的 API: ${bad}`)
+  }
+
+  const sandbox = {
+    data,
+    Math,
+    Number,
+    JSON,
+    Object,
+    Array,
+    String,
+    Boolean,
+    Date,
+    RegExp,
+    parseInt,
+    parseFloat,
+    isNaN,
+    isFinite,
+    Infinity,
+    NaN,
+    undefined,
+  }
+  vm.createContext(sandbox)
+  try {
+    return vm.runInNewContext(`(${code})(data)`, sandbox, { timeout: EXTRACT_TIMEOUT_MS })
+  } catch (e) {
+    if (e && e.code === 'ERR_SCRIPT_EXECUTION_TIMEOUT') {
+      throw new Error(`提取函数执行超时 (${EXTRACT_TIMEOUT_MS}ms)`)
+    }
+    throw new Error(`提取函数执行失败: ${e.message}`)
+  }
 }
 
 async function fetchBalance(platform) {
@@ -41,7 +84,7 @@ async function fetchBalance(platform) {
     res = await fetch(request.url, {
       method: request.method || 'GET',
       headers: request.headers || {},
-      body: buildBody(request),
+      body: request.body ? JSON.stringify(request.body) : undefined,
       signal: controller.signal,
     })
   } catch (err) {
@@ -62,20 +105,20 @@ async function fetchBalance(platform) {
     throw new Error('响应不是有效 JSON')
   }
 
-  const { response } = platform
-  if (!response || !response.path) {
-    return { value: data, unit: (response && response.unit) || '' }
+  let value
+  if (platform.extractor) {
+    value = runExtractor(platform.extractor, data)
+  } else if (platform.response && platform.response.path) {
+    value = resolvePath(data, platform.response.path)
+    if (value !== undefined && Number(platform.response.divider)) {
+      value = toNumber(value) / Number(platform.response.divider)
+    }
+  } else {
+    throw new Error('未配置提取函数')
   }
+  if (value === undefined) throw new Error('提取函数未返回余额')
 
-  const raw = resolvePath(data, response.path)
-  if (raw === undefined) {
-    throw new Error(`响应中未找到路径: ${response.path}`)
-  }
-  let value = toNumber(raw)
-  if (typeof value === 'number' && Number(response.divider)) {
-    value = value / Number(response.divider)
-  }
-  return { value, unit: (response && response.unit) || '' }
+  return { value: toNumber(value) }
 }
 
-module.exports = { fetchBalance, resolvePath }
+module.exports = { fetchBalance, resolvePath, runExtractor }

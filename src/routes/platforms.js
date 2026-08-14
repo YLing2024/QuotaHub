@@ -12,9 +12,8 @@ function toPublic(p) {
 function pickConfig(body) {
   const cfg = {}
   if (body.name !== undefined) cfg.name = String(body.name).trim()
-  if (body.preset !== undefined) cfg.preset = body.preset
   if (body.request !== undefined) cfg.request = body.request
-  if (body.response !== undefined) cfg.response = body.response
+  if (body.extractor !== undefined) cfg.extractor = body.extractor
   return cfg
 }
 
@@ -22,19 +21,13 @@ function normalizePlatform(body) {
   return {
     id: crypto.randomUUID(),
     name: body.name || '未命名平台',
-    preset: body.preset || 'custom',
     request: {
       method: 'GET',
       url: '',
       headers: {},
       ...(body.request || {}),
     },
-    response: {
-      path: '',
-      prefix: '',
-      suffix: '',
-      ...(body.response || {}),
-    },
+    extractor: body.extractor || '',
     createdAt: new Date().toISOString(),
   }
 }
@@ -156,8 +149,6 @@ router.get('/balances', (req, res) => {
     return {
       id: p.id,
       name: p.name,
-      prefix: (p.response && p.response.prefix) || '',
-      suffix: (p.response && p.response.suffix) || '',
       balance: b ? b.value : null,
       error: b ? b.error : null,
       fetchedAt: b ? b.fetchedAt : null,

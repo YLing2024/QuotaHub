@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>QuotaHub</title>
   <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="vendor/codemirror/codemirror.css">
 </head>
 <body>
 
@@ -68,111 +69,54 @@
         </div>
 
         <form class="form" id="platform-form">
-          <div class="preset-tabs" id="preset-tabs">
-            <button type="button" class="preset-tab is-active" data-preset="newapi">NEWAPI</button>
-            <button type="button" class="preset-tab" data-preset="custom">自定义</button>
-          </div>
-
-          <!-- ===== 子 Tab: NewAPI ===== -->
-          <div class="preset-panel is-active" data-panel="newapi">
-            <div class="form__row">
-              <div class="field field--wide">
-                <label class="field__label" for="n-name">平台名称</label>
-                <input class="field__input" id="n-name" placeholder="我的 NewAPI">
-              </div>
-            </div>
-            <div class="form__row">
-              <div class="field field--wide">
-                <label class="field__label" for="n-base">请求地址（Base URL）</label>
-                <input class="field__input" id="n-base" placeholder="https://your-newapi.example.com">
-              </div>
-            </div>
-            <div class="form__row">
-              <div class="field">
-                <label class="field__label" for="n-token">访问令牌</label>
-                <input class="field__input" id="n-token" placeholder="sk-你的访问令牌">
-              </div>
-              <div class="field">
-                <label class="field__label" for="n-user">用户 ID（可留空，查自己）</label>
-                <input class="field__input" id="n-user" placeholder="留空则不带 New-Api-User 头">
-              </div>
-            </div>
-            <div class="form__row">
-              <div class="field">
-                <label class="field__label" for="n-divider">额度换算（quota ÷ 系数）</label>
-                <input class="field__input" id="n-divider" value="500000" placeholder="500000">
-              </div>
-              <div class="field">
-                <label class="field__label" for="n-prefix">余额前缀</label>
-                <input class="field__input" id="n-prefix" placeholder="$">
-              </div>
-            </div>
-            <div class="form__row">
-              <div class="field">
-                <label class="field__label" for="n-suffix">余额后缀</label>
-                <input class="field__input" id="n-suffix" placeholder="USD">
-              </div>
-              <div class="field"></div>
-            </div>
-            <p class="preset-hint">
-              请求方式参考 cc-switch：GET /api/user/self<br>
-              请求头：Content-Type · Authorization: Bearer 访问令牌 · User-Agent: cc-switch/1.0 · New-Api-User: 用户 ID（留空则不发送）<br>
-              换算默认 500000 quota = 1 单位（NewAPI 默认汇率），按站点实际设置调整。
-            </p>
-          </div>
-
-          <!-- ===== 子 Tab: 自定义 ===== -->
-          <div class="preset-panel" data-panel="custom">
-            <div class="form__row">
-              <div class="field field--wide">
-                <label class="field__label" for="f-name">平台名称</label>
-                <input class="field__input" id="f-name" placeholder="DeepSeek">
-              </div>
-            </div>
-            <div class="form__row">
-              <div class="field">
-                <label class="field__label" for="f-method">请求方法</label>
-                <select class="field__input" id="f-method">
-                  <option>GET</option>
-                  <option>POST</option>
-                </select>
-              </div>
-              <div class="field">
-                <label class="field__label" for="f-body">请求体（JSON，仅 POST）</label>
-                <input class="field__input" id="f-body" placeholder='{"api_key": "sk-xxx"}' disabled>
-              </div>
-            </div>
-            <div class="form__row">
-              <div class="field field--wide">
-                <label class="field__label" for="f-base">请求 URL</label>
-                <input class="field__input" id="f-base" placeholder="https://api.deepseek.com/user/balance">
-              </div>
-            </div>
-            <div class="form__row">
-              <div class="field field--wide">
-                <label class="field__label" for="f-headers">请求头（JSON，认证凭据直接写在这里）</label>
-                <input class="field__input" id="f-headers" placeholder='{"Authorization": "Bearer sk-你的密钥"}'>
-              </div>
-            </div>
-            <div class="form__row">
-              <div class="field">
-                <label class="field__label" for="f-path">余额响应路径</label>
-                <input class="field__input" id="f-path" placeholder="data.balance[0].total_balance">
-              </div>
-              <div class="field">
-                <label class="field__label" for="f-prefix">余额前缀</label>
-                <input class="field__input" id="f-prefix" placeholder="$ 或 ¥">
-              </div>
-            </div>
-            <div class="form__row">
-              <div class="field">
-                <label class="field__label" for="f-suffix">余额后缀</label>
-                <input class="field__input" id="f-suffix" placeholder="元 / Credits">
-              </div>
-              <div class="field"></div>
+          <div class="form__row">
+            <div class="field field--wide">
+              <label class="field__label" for="f-name">平台名称</label>
+              <input class="field__input" id="f-name" placeholder="DeepSeek">
             </div>
           </div>
-
+          <div class="form__row">
+            <div class="field">
+              <label class="field__label" for="f-method">请求方法</label>
+              <select class="field__input" id="f-method">
+                <option>GET</option>
+                <option>POST</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="field__label" for="f-body">请求体（JSON，仅 POST）</label>
+              <input class="field__input" id="f-body" placeholder='{"api_key": "sk-xxx"}' disabled>
+            </div>
+          </div>
+          <div class="form__row">
+            <div class="field field--wide">
+              <label class="field__label" for="f-url">请求 URL</label>
+              <input class="field__input" id="f-url" placeholder="https://api.deepseek.com/user/balance">
+            </div>
+          </div>
+          <div class="form__row">
+            <div class="field field--wide">
+              <label class="field__label" for="f-headers">请求头（JSON）</label>
+              <textarea class="field__code" id="f-headers" rows="3" spellcheck="false">{
+  "Authorization": "Bearer 你的密钥"
+}</textarea>
+            </div>
+          </div>
+          <div class="form__row">
+            <div class="field field--wide">
+              <label class="field__label" for="f-extractor">提取函数（JS，data 为响应 JSON，返回余额数值）</label>
+              <textarea class="field__code" id="f-extractor" rows="6" spellcheck="false">function (data) {
+  return data.balance
+}</textarea>
+            </div>
+          </div>
+          <div class="form__row">
+            <div class="field">
+              <button type="button" class="btn btn--ghost" id="btn-newapi">NEWAPI 快速配置</button>
+              <span class="field__hint">弹窗填入 请求地址 / 访问令牌 / 用户 ID，自动生成请求与提取函数</span>
+            </div>
+            <div class="field"></div>
+          </div>
           <div class="form__actions">
             <button type="submit" class="btn" id="btn-save">保存配置</button>
             <button type="button" class="btn btn--ghost" id="btn-cancel-edit" hidden>取消编辑</button>
@@ -192,16 +136,13 @@
           <thead>
             <tr>
               <th>平台</th>
-              <th>类型</th>
               <th>URL</th>
-              <th>前缀</th>
-              <th>后缀</th>
               <th>操作</th>
             </tr>
           </thead>
           <tbody id="platform-table-body">
             <tr class="table__empty">
-              <td colspan="6">尚未配置任何平台</td>
+              <td colspan="3">尚未配置任何平台</td>
             </tr>
           </tbody>
         </table>
@@ -211,11 +152,40 @@
 
   </main>
 
+  <!-- ========== NEWAPI 快速配置弹窗 ========== -->
+  <div class="modal" id="newapi-modal" hidden>
+    <div class="modal__box">
+      <div class="modal__head">
+        <span class="modal__title">NEWAPI 快速配置</span>
+        <button type="button" class="modal__close" id="m-close">×</button>
+      </div>
+      <p class="modal__desc">填写后自动生成：GET /api/user/self 请求、请求头、quota ÷ 500000 提取函数</p>
+      <div class="modal__field">
+        <label class="field__label" for="m-base">请求地址（Base URL）</label>
+        <input class="field__input" id="m-base" placeholder="https://your-newapi.example.com">
+      </div>
+      <div class="modal__field">
+        <label class="field__label" for="m-token">访问令牌</label>
+        <input class="field__input" id="m-token" placeholder="sk-你的访问令牌">
+      </div>
+      <div class="modal__field">
+        <label class="field__label" for="m-user">用户 ID（可留空，查自己）</label>
+        <input class="field__input" id="m-user" placeholder="留空则不发送 New-Api-User 头">
+      </div>
+      <div class="modal__actions">
+        <button type="button" class="btn" id="m-confirm">填入配置</button>
+        <button type="button" class="btn btn--ghost" id="m-cancel">取消</button>
+      </div>
+    </div>
+  </div>
+
   <footer class="footer">
     <span>QUOTAHUB © 2026</span>
     <span>OPEN SOURCE · MIT LICENSE</span>
   </footer>
 
+  <script src="vendor/codemirror/codemirror.js"></script>
+  <script src="vendor/codemirror/mode/javascript.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>
