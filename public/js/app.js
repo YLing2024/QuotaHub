@@ -22,6 +22,11 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.tab').forEach((tab) => {
       tab.classList.toggle('is-active', tab.id === `tab-${name}`)
     })
+    sessionStorage.setItem('quotahub-tab', name)
+  }
+  const savedTab = sessionStorage.getItem('quotahub-tab')
+  if (savedTab && (savedTab === 'dashboard' || savedTab === 'config')) {
+    switchTab(savedTab)
   }
   nav.addEventListener('click', (e) => {
     const btn = e.target.closest('.header__link')
@@ -45,18 +50,18 @@ document.addEventListener('DOMContentLoaded', () => {
     lastUpdate.textContent = `LAST UPDATE — ${data.updatedAt ? new Date(data.updatedAt).toLocaleString('zh-CN') : '—'}`
     const items = data.platforms || []
     grid.innerHTML = items.length
-      ? items.map((p) => {
-          const low = p.balance != null && Number(p.balance) <= Number(p.threshold)
-          return `
+      ? items.map((p) => `
           <article class="card ${p.balance == null ? 'card--empty' : ''}">
             <div class="card__top">
               <span class="card__platform">${p.name}</span>
-              <span class="card__tag ${low ? 'tag--warn' : ''}">${low ? '低余额' : p.enabled ? '正常' : '停用'}</span>
+              <span class="card__tag">${p.balance == null ? '待获取' : '已获取'}</span>
             </div>
-            <div class="card__balance">${fmt(p.balance)}</div>
-            <div class="card__foot">${p.unit || p.currency} · 阈值 ${fmt(p.threshold)}</div>
+            <div class="card__balance">
+              <span class="card__affix">${p.prefix}</span>${fmt(p.balance)}<span class="card__affix">${p.suffix}</span>
+            </div>
+            <div class="card__foot">${p.fetchedAt ? `获取于 ${new Date(p.fetchedAt).toLocaleString('zh-CN')}` : '尚未获取'}</div>
           </article>`
-        }).join('')
+        ).join('')
       : '<div class="card card--empty"><div class="card__platform">尚未配置平台</div></div>'
   }
 
@@ -86,64 +91,89 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const form = document.getElementById('platform-form')
   const formMsg = document.getElementById('form-msg')
-  const tplSelect = document.getElementById('f-template')
-  const tplNote = document.getElementById('f-template-note')
 
-  let templates = []
+  /* ---------- 子 Tab: 预设类型 ---------- */
+
+  let preset = 'newapi'
+
+  document.getElementById('preset-tabs').addEventListener('click', (e) => {
+    const btn = e.target.closest('.preset-tab')
+    if (!btn) return
+    preset = btn.dataset.preset
+    document.querySelectorAll('.preset-tab').forEach((b) => {
+      b.classList.toggle('is-active', b === btn)
+    })
+    document.querySelectorAll('.preset-panel').forEach((panel) => {
+      panel.classList.toggle('is-active', panel.dataset.panel === preset)
+    })
+  })
 
   const setMsg = (text, isError) => {
     formMsg.textContent = text
     formMsg.classList.toggle('is-error', Boolean(isError))
   }
 
-  const fillTemplate = (tpl) => {
-    if (!tpl) return
-    document.getElementById('f-method').value = tpl.request.method || 'GET'
-    document.getElementById('f-base').value = tpl.request.url || ''
-    document.getElementById('f-headers').value = JSON.stringify(tpl.request.headers || {})
-    document.getElementById('f-path').value = tpl.response.path || ''
-    document.getElementById('f-currency').value = tpl.response.unit || 'USD'
-    tplNote.textContent = tpl.note || ''
-  }
+  const bodyInput = document.getElementById('f-body')
+  const methodSelect = document.getElementById('f-method')
 
-  const loadTemplates = async () => {
-    templates = await api('/templates')
-    templates.forEach((t) => {
-      const opt = document.createElement('option')
-      opt.value = t.id
-      opt.textContent = t.name
-      tplSelect.appendChild(opt)
-    })
+  const toggleBody = () => {
+    bodyInput.disabled = methodSelect.value !== 'POST'
   }
-
-  tplSelect.addEventListener('change', () => {
-    const tpl = templates.find((t) => t.id === tplSelect.value)
-    if (tpl) fillTemplate(tpl)
-    else tplNote.textContent = ''
-  })
+  methodSelect.addEventListener('change', toggleBody)
+  toggleBody()
 
   const readForm = () => {
+    if (preset === 'newapi') {
+      const base = document.getElementById('n-base').value.trim().replace(/\/+$/, '')
+      const userId = document.getElementById('n-user').value.trim()
+      const token = document.getElementById('n-token').value.trim()
+      if (!base) throw new Error('请填写请求地址')
+      if (!token) throw new Error('请填写访问令牌')
+      return {
+        name: document.getElementById('n-name').value,
+        preset: 'newapi',
+        request: {
+          method: 'GET',
+          url: `${base}/api/user/${userId || 'self'}`,
+          headers: { Authorization: `Bearer ${token}` },
+        },
+        response: {
+          path: 'data.quota',
+          prefix: document.getElementById('n-prefix').value,
+          suffix: document.getElementById('n-suffix').value,
+        },
+      }
+    }
+
     let headers = {}
     try {
       headers = JSON.parse(document.getElementById('f-headers').value || '{}')
     } catch {
       throw new Error('请求头必须是合法 JSON')
     }
+    const bodyText = bodyInput.value.trim()
+    let body
+    if (bodyText) {
+      try {
+        body = JSON.parse(bodyText)
+      } catch {
+        throw new Error('请求体必须是合法 JSON')
+      }
+    }
     return {
       name: document.getElementById('f-name').value,
-      template: tplSelect.value || 'custom',
-      apiKey: document.getElementById('f-key').value,
+      preset: 'custom',
       request: {
-        method: document.getElementById('f-method').value,
+        method: methodSelect.value,
         url: document.getElementById('f-base').value,
         headers,
+        body,
       },
       response: {
         path: document.getElementById('f-path').value,
-        unit: document.getElementById('f-currency').value,
+        prefix: document.getElementById('f-prefix').value,
+        suffix: document.getElementById('f-suffix').value,
       },
-      threshold: Number(document.getElementById('f-threshold').value) || 0,
-      enabled: document.getElementById('f-enabled').checked,
     }
   }
 
@@ -161,8 +191,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const created = await api('/', { method: 'POST', body: JSON.stringify(payload) })
       setMsg(`已保存: ${created.name}`)
       form.reset()
-      tplSelect.value = ''
-      tplNote.textContent = ''
+      toggleBody()
       await loadPlatforms()
       await loadDashboard()
     } catch (err) {
@@ -182,10 +211,10 @@ document.addEventListener('DOMContentLoaded', () => {
     tbody.innerHTML = list.map((p) => `
       <tr data-id="${p.id}">
         <td>${p.name}</td>
+        <td><span class="tag ${p.preset === 'newapi' ? 'tag--on' : ''}">${(p.preset || 'custom').toUpperCase()}</span></td>
         <td>${p.request.url || '—'}</td>
-        <td>${p.currency}</td>
-        <td>${p.threshold}</td>
-        <td><span class="tag ${p.enabled ? 'tag--on' : 'tag--off'}">${p.enabled ? '启用' : '停用'}</span></td>
+        <td>${p.response.prefix || '—'}</td>
+        <td>${p.response.suffix || '—'}</td>
         <td>
           <button class="table__action" data-act="test">测试连接</button>
           <button class="table__action" data-act="fetch">获取余额</button>
@@ -217,12 +246,12 @@ document.addEventListener('DOMContentLoaded', () => {
       if (btn.dataset.act === 'test') {
         msgEl.textContent = '测试中…'
         const r = await api(`/${id}/test`, { method: 'POST' })
-        msgEl.textContent = r.ok ? `成功: ${r.value} ${r.unit}` : `失败: ${r.error}`
+        msgEl.textContent = r.ok ? `成功: ${fmt(r.value)}` : `失败: ${r.error}`
         if (!r.ok) msgEl.classList.add('is-error')
       } else if (btn.dataset.act === 'fetch') {
         msgEl.textContent = '获取中…'
         const r = await api(`/${id}/fetch`, { method: 'POST' })
-        msgEl.textContent = r.ok ? `已获取: ${r.value} ${r.unit}` : `失败: ${r.error}`
+        msgEl.textContent = r.ok ? `已获取: ${fmt(r.value)}` : `失败: ${r.error}`
         if (!r.ok) msgEl.classList.add('is-error')
         await loadDashboard()
       } else if (btn.dataset.act === 'delete') {
@@ -237,7 +266,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   })
 
-  loadTemplates()
   loadPlatforms()
   loadDashboard()
 })

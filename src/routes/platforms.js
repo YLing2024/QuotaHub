@@ -1,58 +1,40 @@
 const crypto = require('crypto')
 const express = require('express')
 const store = require('../store')
-const { getTemplate } = require('../templates')
 const { fetchBalance } = require('../fetcher')
 
 const router = express.Router()
 
-function maskKey(key) {
-  if (!key) return ''
-  return `${key.slice(0, 3)}••••${key.slice(-4)}`
-}
-
 function toPublic(p) {
-  const { apiKey, ...rest } = p
-  return { ...rest, apiKeyMasked: maskKey(apiKey) }
+  return { ...p }
 }
 
 function pickConfig(body) {
   const cfg = {}
   if (body.name !== undefined) cfg.name = String(body.name).trim()
-  if (body.template !== undefined) cfg.template = body.template
+  if (body.preset !== undefined) cfg.preset = body.preset
   if (body.request !== undefined) cfg.request = body.request
   if (body.response !== undefined) cfg.response = body.response
-  if (body.threshold !== undefined) cfg.threshold = body.threshold
-  if (body.enabled !== undefined) cfg.enabled = Boolean(body.enabled)
-  if (body.currency !== undefined) cfg.currency = body.currency
   return cfg
 }
 
 function normalizePlatform(body) {
-  const tmpl = body.template ? getTemplate(body.template) : null
-  const request = {
-    method: 'GET',
-    url: '',
-    headers: { Authorization: 'Bearer {{apiKey}}' },
-    ...(tmpl ? tmpl.request : {}),
-    ...(body.request || {}),
-  }
-  const response = {
-    path: '',
-    unit: 'USD',
-    ...(tmpl ? tmpl.response : {}),
-    ...(body.response || {}),
-  }
   return {
     id: crypto.randomUUID(),
-    name: body.name || (tmpl ? tmpl.name : '未命名平台'),
-    template: body.template || 'custom',
-    request,
-    response,
-    apiKey: body.apiKey || '',
-    threshold: body.threshold ?? 10,
-    enabled: body.enabled !== false,
-    currency: response.unit || 'USD',
+    name: body.name || '未命名平台',
+    preset: body.preset || 'custom',
+    request: {
+      method: 'GET',
+      url: '',
+      headers: {},
+      ...(body.request || {}),
+    },
+    response: {
+      path: '',
+      prefix: '',
+      suffix: '',
+      ...(body.response || {}),
+    },
     createdAt: new Date().toISOString(),
   }
 }
@@ -66,11 +48,6 @@ function findOr404(list, id) {
   }
   return { idx, err: null }
 }
-
-router.get('/templates', (req, res) => {
-  const { TEMPLATES, toPublicTemplate } = require('../templates')
-  res.json(TEMPLATES.map(toPublicTemplate))
-})
 
 router.get('/', (req, res) => {
   res.json(store.getPlatforms().map(toPublic))
@@ -91,16 +68,9 @@ router.put('/:id', (req, res) => {
 
   const old = list[idx]
   const patch = pickConfig(req.body || {})
-  if (req.body && req.body.apiKey && !req.body.apiKey.includes('••••')) {
-    patch.apiKey = req.body.apiKey
-  }
-  const updated = { ...old, ...patch }
-  if (updated.currency === undefined) {
-    updated.currency = (updated.response && updated.response.unit) || 'USD'
-  }
-  list[idx] = updated
+  list[idx] = { ...old, ...patch }
   store.savePlatforms(list)
-  res.json(toPublic(updated))
+  res.json(toPublic(list[idx]))
 })
 
 router.delete('/:id', (req, res) => {
@@ -133,9 +103,6 @@ router.post('/:id/fetch', async (req, res) => {
   const list = store.getPlatforms()
   const { idx, err } = findOr404(list, req.params.id)
   if (err) return res.status(err.status).json({ error: err.message })
-  if (!list[idx].enabled) {
-    return res.status(400).json({ error: '平台已停用' })
-  }
 
   try {
     const result = await fetchBalance(list[idx])
@@ -152,7 +119,7 @@ router.post('/:id/fetch', async (req, res) => {
 })
 
 router.post('/refresh', async (req, res) => {
-  const list = store.getPlatforms().filter((p) => p.enabled)
+  const list = store.getPlatforms()
   const balances = store.getBalances()
   const results = []
   for (const p of list) {
@@ -174,11 +141,9 @@ router.get('/balances', (req, res) => {
   const data = platforms.map((p) => ({
     id: p.id,
     name: p.name,
-    enabled: p.enabled,
-    currency: p.currency || (p.response && p.response.unit) || 'USD',
-    threshold: p.threshold,
+    prefix: (p.response && p.response.prefix) || '',
+    suffix: (p.response && p.response.suffix) || '',
     balance: balances[p.id] ? balances[p.id].value : null,
-    unit: balances[p.id] ? balances[p.id].unit : '',
     fetchedAt: balances[p.id] ? balances[p.id].fetchedAt : null,
   }))
   res.json({ updatedAt: new Date().toISOString(), platforms: data })

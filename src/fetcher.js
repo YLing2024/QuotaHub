@@ -22,12 +22,9 @@ function toNumber(v) {
   return v
 }
 
-function buildHeaders(platform) {
-  const headers = {}
-  for (const [k, v] of Object.entries(platform.request.headers || {})) {
-    headers[k] = String(v).replace(/\{\{apiKey\}\}/g, platform.apiKey || '')
-  }
-  return headers
+function buildBody(request) {
+  if (!request.body) return undefined
+  return typeof request.body === 'string' ? request.body : JSON.stringify(request.body)
 }
 
 async function fetchBalance(platform) {
@@ -43,8 +40,8 @@ async function fetchBalance(platform) {
   try {
     res = await fetch(request.url, {
       method: request.method || 'GET',
-      headers: buildHeaders(platform),
-      body: request.body ? JSON.stringify(request.body) : undefined,
+      headers: request.headers || {},
+      body: buildBody(request),
       signal: controller.signal,
     })
   } catch (err) {
