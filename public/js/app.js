@@ -56,9 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
               <span class="card__platform">${p.name}</span>
               <span class="card__tag ${p.error ? 'tag--warn' : ''}">${p.error ? '获取失败' : p.balance == null ? '待获取' : '已获取'}</span>
             </div>
-            <div class="card__balance">
-              <span class="card__affix">${p.prefix}</span>${fmt(p.balance)}<span class="card__affix">${p.suffix}</span>
-            </div>
+            <div class="card__balance">${fmt(p.balance)}</div>
             <div class="card__foot ${p.error ? 'card__foot--error' : ''}">${p.error || (p.fetchedAt ? `获取于 ${new Date(p.fetchedAt).toLocaleString('zh-CN')}` : '尚未获取')}</div>
           </article>`
         ).join('')
@@ -103,51 +101,65 @@ document.addEventListener('DOMContentLoaded', () => {
     setMsg(id ? `正在编辑：${name}` : '')
   }
 
-  const switchPreset = (name) => {
-    preset = name
-    document.querySelectorAll('.preset-tab').forEach((b) => {
-      b.classList.toggle('is-active', b.dataset.preset === name)
-    })
-    document.querySelectorAll('.preset-panel').forEach((panel) => {
-      panel.classList.toggle('is-active', panel.dataset.panel === name)
-    })
-  }
-
-  document.getElementById('preset-tabs').addEventListener('click', (e) => {
-    const btn = e.target.closest('.preset-tab')
-    if (btn) switchPreset(btn.dataset.preset)
-  })
-
-  const fillForm = (p) => {
-    switchPreset(p.preset === 'newapi' ? 'newapi' : 'custom')
-    if (p.preset === 'newapi') {
-      const headers = p.request.headers || {}
-      const base = (p.request.url || '').replace(/\/api\/user\/self$/, '')
-      document.getElementById('n-name').value = p.name || ''
-      document.getElementById('n-base').value = base
-      document.getElementById('n-user').value = headers['New-Api-User'] || ''
-      document.getElementById('n-token').value = (headers.Authorization || '').replace(/^Bearer\s+/i, '')
-      document.getElementById('n-divider').value = p.response && p.response.divider ? p.response.divider : '500000'
-      document.getElementById('n-prefix').value = (p.response && p.response.prefix) || ''
-      document.getElementById('n-suffix').value = (p.response && p.response.suffix) || ''
-    } else {
-      document.getElementById('f-name').value = p.name || ''
-      methodSelect.value = p.request.method || 'GET'
-      document.getElementById('f-base').value = p.request.url || ''
-      document.getElementById('f-headers').value = JSON.stringify(p.request.headers || {}, null, 0)
-      document.getElementById('f-body').value = p.request.body ? JSON.stringify(p.request.body) : ''
-      document.getElementById('f-path').value = (p.response && p.response.path) || ''
-      document.getElementById('f-prefix').value = (p.response && p.response.prefix) || ''
-      document.getElementById('f-suffix').value = (p.response && p.response.suffix) || ''
-      toggleBody()
-    }
-    form.scrollIntoView({ behavior: 'smooth' })
-  }
-
   const setMsg = (text, isError) => {
     formMsg.textContent = text
     formMsg.classList.toggle('is-error', Boolean(isError))
   }
+
+  /* ---------- CodeMirror 编辑器 ---------- */
+
+  const headerEditor = CodeMirror.fromTextArea(document.getElementById('f-headers'), {
+    lineNumbers: true,
+    mode: { name: 'javascript', json: true },
+    extraKeys: { 'Ctrl-Enter': () => document.getElementById('btn-validate').click() },
+  })
+
+  const extractorEditor = CodeMirror.fromTextArea(document.getElementById('f-extractor'), {
+    lineNumbers: true,
+    mode: 'javascript',
+    extraKeys: { 'Ctrl-Enter': () => document.getElementById('btn-validate').click() },
+  })
+
+  /* ---------- NEWAPI 快速配置弹窗 ---------- */
+
+  const modal = document.getElementById('newapi-modal')
+  const openModal = () => { modal.hidden = false }
+  const closeModal = () => { modal.hidden = true }
+
+  document.getElementById('btn-newapi').addEventListener('click', openModal)
+  document.getElementById('m-close').addEventListener('click', closeModal)
+  document.getElementById('m-cancel').addEventListener('click', closeModal)
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeModal()
+  })
+
+  document.getElementById('m-confirm').addEventListener('click', () => {
+    const base = document.getElementById('m-base').value.trim().replace(/\/+$/, '')
+    const token = document.getElementById('m-token').value.trim()
+    const user = document.getElementById('m-user').value.trim()
+    if (!base) return setMsg('请填写请求地址', true)
+    if (!token) return setMsg('请填写访问令牌', true)
+
+    const headers = {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      'User-Agent': 'cc-switch/1.0',
+    }
+    if (user) headers['New-Api-User'] = user
+
+    document.getElementById('f-url').value = `${base}/api/user/self`
+    headerEditor.setValue(JSON.stringify(headers, null, 2))
+    extractorEditor.setValue('function (data) {\n  return data.quota / 500000\n}')
+
+    document.getElementById('m-base').value = ''
+    document.getElementById('m-token').value = ''
+    document.getElementById('m-user').value = ''
+    closeModal()
+    setMsg('已填入 NEWAPI 配置，可修改后保存')
+    document.getElementById('f-url').scrollIntoView({ behavior: 'smooth', block: 'center' })
+  })
+
+  /* ---------- 请求体开关 ---------- */
 
   const bodyInput = document.getElementById('f-body')
   const methodSelect = document.getElementById('f-method')
@@ -158,40 +170,12 @@ document.addEventListener('DOMContentLoaded', () => {
   methodSelect.addEventListener('change', toggleBody)
   toggleBody()
 
-  const readForm = () => {
-    if (preset === 'newapi') {
-      const base = document.getElementById('n-base').value.trim().replace(/\/+$/, '')
-      const userId = document.getElementById('n-user').value.trim()
-      const token = document.getElementById('n-token').value.trim()
-      const divider = Number(document.getElementById('n-divider').value)
-      if (!base) throw new Error('请填写请求地址')
-      if (!token) throw new Error('请填写访问令牌')
-      const headers = {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-        'User-Agent': 'cc-switch/1.0',
-      }
-      if (userId) headers['New-Api-User'] = userId
-      return {
-        name: document.getElementById('n-name').value,
-        preset: 'newapi',
-        request: {
-          method: 'GET',
-          url: `${base}/api/user/self`,
-          headers,
-        },
-        response: {
-          path: 'data.quota',
-          divider: divider > 0 ? divider : undefined,
-          prefix: document.getElementById('n-prefix').value,
-          suffix: document.getElementById('n-suffix').value,
-        },
-      }
-    }
+  /* ---------- 表单读取 ---------- */
 
+  const readForm = () => {
     let headers = {}
     try {
-      headers = JSON.parse(document.getElementById('f-headers').value || '{}')
+      headers = JSON.parse(headerEditor.getValue() || '{}')
     } catch {
       throw new Error('请求头必须是合法 JSON')
     }
@@ -206,20 +190,41 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     return {
       name: document.getElementById('f-name').value,
-      preset: 'custom',
       request: {
         method: methodSelect.value,
-        url: document.getElementById('f-base').value,
+        url: document.getElementById('f-url').value,
         headers,
         body,
       },
-      response: {
-        path: document.getElementById('f-path').value,
-        prefix: document.getElementById('f-prefix').value,
-        suffix: document.getElementById('f-suffix').value,
-      },
+      extractor: extractorEditor.getValue(),
     }
   }
+
+  /* ---------- 表单回填 ---------- */
+
+  const clearForm = () => {
+    form.reset()
+    headerEditor.setValue('{\n  "Authorization": "Bearer 你的密钥"\n}')
+    extractorEditor.setValue('function (data) {\n  return data.balance\n}')
+    toggleBody()
+  }
+
+  const fillForm = (p) => {
+    document.getElementById('f-name').value = p.name || ''
+    methodSelect.value = (p.request && p.request.method) || 'GET'
+    document.getElementById('f-url').value = (p.request && p.request.url) || ''
+    headerEditor.setValue(JSON.stringify((p.request && p.request.headers) || {}, null, 2))
+    bodyInput.value = p.request && p.request.body ? JSON.stringify(p.request.body) : ''
+    toggleBody()
+    extractorEditor.setValue(
+      p.extractor ||
+      (p.response && p.response.path
+        ? `function (data) {\n  return ${p.response.path}${p.response.divider ? ' / ' + p.response.divider : ''}\n}`
+        : 'function (data) {\n  return data.balance\n}')
+    )
+  }
+
+  /* ---------- 验证 ---------- */
 
   const btnValidate = document.getElementById('btn-validate')
   btnValidate.addEventListener('click', async () => {
@@ -236,8 +241,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const r = await api('/validate', { method: 'POST', body: JSON.stringify(payload) })
       if (r.ok) {
-        const affix = `${r.value} ${payload.response.prefix || ''}${payload.response.suffix || ''}`.trim()
-        setMsg(`验证成功: ${affix}`)
+        setMsg(`验证成功: ${fmt(r.value)}`)
       } else {
         setMsg(`验证失败: ${r.error}`, true)
       }
@@ -247,6 +251,8 @@ document.addEventListener('DOMContentLoaded', () => {
       btnValidate.disabled = false
     }
   })
+
+  /* ---------- 保存 / 更新 ---------- */
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault()
@@ -264,9 +270,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const saved = await api(url, { method, body: JSON.stringify(payload) })
       setMsg(editingId ? `已更新: ${saved.name}` : `已保存: ${saved.name}`)
       setEditing(null)
-      form.reset()
-      toggleBody()
-      switchPreset('newapi')
+      clearForm()
       await loadPlatforms()
       await loadDashboard()
     } catch (err) {
@@ -276,11 +280,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   btnCancelEdit.addEventListener('click', () => {
     setEditing(null)
-    form.reset()
-    toggleBody()
-    switchPreset('newapi')
+    clearForm()
     setMsg('')
   })
+
+  /* ---------- 平台表格 ---------- */
 
   const tbody = document.getElementById('platform-table-body')
   const tplCount = document.querySelector('.section__note')
@@ -288,16 +292,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const renderPlatforms = (list) => {
     tplCount.textContent = `CONFIGURED · ${list.length}`
     if (!list.length) {
-      tbody.innerHTML = '<tr class="table__empty"><td colspan="6">尚未配置任何平台</td></tr>'
+      tbody.innerHTML = '<tr class="table__empty"><td colspan="3">尚未配置任何平台</td></tr>'
       return
     }
     tbody.innerHTML = list.map((p) => `
       <tr data-id="${p.id}">
         <td>${p.name}</td>
-        <td><span class="tag ${p.preset === 'newapi' ? 'tag--on' : ''}">${(p.preset || 'custom').toUpperCase()}</span></td>
-        <td>${p.request.url || '—'}</td>
-        <td>${p.response.prefix || '—'}</td>
-        <td>${p.response.suffix || '—'}</td>
+        <td>${(p.request && p.request.url) || '—'}</td>
         <td>
           <button class="table__action" data-act="edit">编辑</button>
           <button class="table__action" data-act="test">测试连接</button>
@@ -314,7 +315,7 @@ document.addEventListener('DOMContentLoaded', () => {
       platformsCache = await api('')
       renderPlatforms(platformsCache)
     } catch (e) {
-      tbody.innerHTML = `<tr class="table__empty"><td colspan="6">加载失败: ${e.message}</td></tr>`
+      tbody.innerHTML = `<tr class="table__empty"><td colspan="3">加载失败: ${e.message}</td></tr>`
     }
   }
 
