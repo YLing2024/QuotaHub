@@ -33,8 +33,8 @@
         <h2 class="hero__title">LLM 平台余额监控</h2>
         <div class="hero__line"></div>
         <p class="hero__desc">
-          统一监控各 LLM 平台的配额与余额，低余额自动告警。<br>
-          平台数据抓取功能建设中。
+          统一查看各 LLM 平台的配额与余额。<br>
+          在「平台配置」中接入平台后，可手动获取余额。
         </p>
       </section>
 
@@ -68,69 +68,103 @@
         </div>
 
         <form class="form" id="platform-form">
-          <div class="form__row">
-            <div class="field">
-              <label class="field__label" for="f-name">平台名称</label>
-              <input class="field__input" id="f-name" placeholder="OPENAI">
+          <div class="preset-tabs" id="preset-tabs">
+            <button type="button" class="preset-tab is-active" data-preset="newapi">NEWAPI</button>
+            <button type="button" class="preset-tab" data-preset="custom">自定义</button>
+          </div>
+
+          <!-- ===== 子 Tab: NewAPI ===== -->
+          <div class="preset-panel is-active" data-panel="newapi">
+            <div class="form__row">
+              <div class="field field--wide">
+                <label class="field__label" for="n-name">平台名称</label>
+                <input class="field__input" id="n-name" placeholder="我的 NewAPI">
+              </div>
             </div>
-            <div class="field">
-              <label class="field__label" for="f-template">预置模板</label>
-              <select class="field__input" id="f-template">
-                <option value="">选择模板（可自定义）</option>
-              </select>
-              <span class="field__hint" id="f-template-note"></span>
+            <div class="form__row">
+              <div class="field field--wide">
+                <label class="field__label" for="n-base">请求地址（Base URL）</label>
+                <input class="field__input" id="n-base" placeholder="https://your-newapi.example.com">
+              </div>
+            </div>
+            <div class="form__row">
+              <div class="field">
+                <label class="field__label" for="n-token">访问令牌</label>
+                <input class="field__input" id="n-token" placeholder="sk-你的访问令牌">
+              </div>
+              <div class="field">
+                <label class="field__label" for="n-user">用户 ID（可留空，查自己）</label>
+                <input class="field__input" id="n-user" placeholder="留空查询当前用户">
+              </div>
+            </div>
+            <div class="form__row">
+              <div class="field">
+                <label class="field__label" for="n-prefix">余额前缀</label>
+                <input class="field__input" id="n-prefix" placeholder="$ 或 ¥">
+              </div>
+              <div class="field">
+                <label class="field__label" for="n-suffix">余额后缀</label>
+                <input class="field__input" id="n-suffix" placeholder="quota">
+              </div>
+            </div>
+            <p class="preset-hint">
+              查询接口：GET /api/user/self（或 /api/user/{id}），余额字段 data.quota。<br>
+              quota 为整数额度，与真实金额的换算取决于站点自身的汇率设置。
+            </p>
+          </div>
+
+          <!-- ===== 子 Tab: 自定义 ===== -->
+          <div class="preset-panel" data-panel="custom">
+            <div class="form__row">
+              <div class="field field--wide">
+                <label class="field__label" for="f-name">平台名称</label>
+                <input class="field__input" id="f-name" placeholder="DeepSeek">
+              </div>
+            </div>
+            <div class="form__row">
+              <div class="field">
+                <label class="field__label" for="f-method">请求方法</label>
+                <select class="field__input" id="f-method">
+                  <option>GET</option>
+                  <option>POST</option>
+                </select>
+              </div>
+              <div class="field">
+                <label class="field__label" for="f-body">请求体（JSON，仅 POST）</label>
+                <input class="field__input" id="f-body" placeholder='{"api_key": "sk-xxx"}' disabled>
+              </div>
+            </div>
+            <div class="form__row">
+              <div class="field field--wide">
+                <label class="field__label" for="f-base">请求 URL</label>
+                <input class="field__input" id="f-base" placeholder="https://api.deepseek.com/user/balance">
+              </div>
+            </div>
+            <div class="form__row">
+              <div class="field field--wide">
+                <label class="field__label" for="f-headers">请求头（JSON，认证凭据直接写在这里）</label>
+                <input class="field__input" id="f-headers" placeholder='{"Authorization": "Bearer sk-你的密钥"}'>
+              </div>
+            </div>
+            <div class="form__row">
+              <div class="field">
+                <label class="field__label" for="f-path">余额响应路径</label>
+                <input class="field__input" id="f-path" placeholder="data.balance[0].total_balance">
+              </div>
+              <div class="field">
+                <label class="field__label" for="f-prefix">余额前缀</label>
+                <input class="field__input" id="f-prefix" placeholder="$ 或 ¥">
+              </div>
+            </div>
+            <div class="form__row">
+              <div class="field">
+                <label class="field__label" for="f-suffix">余额后缀</label>
+                <input class="field__input" id="f-suffix" placeholder="元 / Credits">
+              </div>
+              <div class="field"></div>
             </div>
           </div>
-          <div class="form__row">
-            <div class="field">
-              <label class="field__label" for="f-key">API Key</label>
-              <input class="field__input" id="f-key" type="password" placeholder="sk-••••••••">
-            </div>
-            <div class="field">
-              <label class="field__label" for="f-method">请求方法</label>
-              <select class="field__input" id="f-method">
-                <option>GET</option>
-                <option>POST</option>
-              </select>
-            </div>
-          </div>
-          <div class="form__row">
-            <div class="field field--wide">
-              <label class="field__label" for="f-base">请求 URL</label>
-              <input class="field__input" id="f-base" placeholder="https://api.deepseek.com/user/balance">
-            </div>
-          </div>
-          <div class="form__row">
-            <div class="field field--wide">
-              <label class="field__label" for="f-headers">请求头（JSON，支持 {{apiKey}}）</label>
-              <input class="field__input" id="f-headers" placeholder='{"Authorization": "Bearer {{apiKey}}"}'>
-            </div>
-          </div>
-          <div class="form__row">
-            <div class="field">
-              <label class="field__label" for="f-path">余额响应路径</label>
-              <input class="field__input" id="f-path" placeholder="data.balance[0].total_balance">
-            </div>
-            <div class="field">
-              <label class="field__label" for="f-currency">货币单位</label>
-              <select class="field__input" id="f-currency">
-                <option>USD</option>
-                <option>CNY</option>
-              </select>
-            </div>
-          </div>
-          <div class="form__row">
-            <div class="field">
-              <label class="field__label" for="f-threshold">余额告警阈值</label>
-              <input class="field__input" id="f-threshold" placeholder="10.00">
-            </div>
-            <div class="field field--check">
-              <label class="check">
-                <input type="checkbox" id="f-enabled" checked>
-                <span>启用监控</span>
-              </label>
-            </div>
-          </div>
+
           <div class="form__actions">
             <button type="submit" class="btn">保存配置</button>
             <span class="form__msg" id="form-msg"></span>
@@ -148,10 +182,10 @@
           <thead>
             <tr>
               <th>平台</th>
+              <th>类型</th>
               <th>URL</th>
-              <th>货币</th>
-              <th>告警阈值</th>
-              <th>状态</th>
+              <th>前缀</th>
+              <th>后缀</th>
               <th>操作</th>
             </tr>
           </thead>
