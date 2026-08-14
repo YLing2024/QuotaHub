@@ -831,7 +831,24 @@ a {
 }
 
 @media (max-width: 640px) {
+  /* 导航保留(否则小屏无法切换到平台配置), 压缩样式腾空间 */
+  .header {
+    padding: 0 12px;
+    gap: 8px;
+  }
+  .header__title {
+    font-size: 14px;
+    letter-spacing: 2px;
+  }
   .header__nav {
+    display: flex;
+    gap: 12px;
+  }
+  .header__link {
+    font-size: 12px;
+    letter-spacing: 0;
+  }
+  .header__status {
     display: none;
   }
   .grid {
@@ -839,5 +856,27 @@ a {
   }
   .hero__title {
     font-size: 36px;
+  }
+  .section__actions {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+  .table__action {
+    font-size: 11px;
+    letter-spacing: 0;
+    margin-right: 8px;
+  }
+  /* 预设字段编辑器: 三列改单列 */
+  .pe-field-row {
+    grid-template-columns: 1fr;
+  }
+  .modal__box {
+    padding: 16px;
+  }
+  .CodeMirror {
+    width: 100%;
+  }
+  .card__balance {
+    font-size: 32px;
   }
 }
