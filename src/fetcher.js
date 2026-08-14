@@ -6,6 +6,125 @@ const EXTRACT_TIMEOUT_MS = 2000
 const FORBIDDEN_FN = /\b(new\s+Function|Function\s*\()/
 const FORBIDDEN = /\b(require|import\s*\(|import\b|process|module|exports|globalThis|\bglobal\b|window|document|fetch|XMLHttpRequest|WebSocket|\beval\b|constructor|__proto__|prototype|child_process|exec|spawn|node:)/i
 
+const ALLOWED_TOP_LEVEL = new Set([
+  'data',
+  'Math',
+  'Number',
+  'JSON',
+  'Object',
+  'Array',
+  'String',
+  'Boolean',
+  'Date',
+  'RegExp',
+  'parseInt',
+  'parseFloat',
+  'isNaN',
+  'isFinite',
+  'Infinity',
+  'NaN',
+  'undefined',
+  'arguments',
+  'function',
+  'return',
+  'var',
+  'let',
+  'const',
+  'if',
+  'else',
+  'for',
+  'while',
+  'do',
+  'switch',
+  'case',
+  'default',
+  'break',
+  'continue',
+  'throw',
+  'try',
+  'catch',
+  'finally',
+  'typeof',
+  'instanceof',
+  'in',
+  'of',
+  'new',
+  'delete',
+  'void',
+  'this',
+  'true',
+  'false',
+  'null',
+  'yield',
+  'await',
+  'async',
+  'class',
+  'extends',
+  'super',
+  'static',
+  'get',
+  'set',
+])
+
+function checkTopLevelWhitelist(code) {
+  const stripped = code
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/\/\/[^\n\r]*/g, ' ')
+    .replace(/'(?:\\.|[^'\\\n])*'|"(?:\\.|[^"\\\n])*"/g, '""')
+    .replace(/`(?:\\.|[^`\\])*`/g, '``')
+
+  const declared = new Set()
+  for (const m of stripped.matchAll(/\b(?:var|let|const)\s+([A-Za-z_$][\w$]*)/g)) {
+    declared.add(m[1])
+  }
+  for (const m of stripped.matchAll(/function\s*\(([^)]*)\)/g)) {
+    m[1].split(',').forEach((p) => {
+      const n = p.trim().match(/[A-Za-z_$][\w$]*/)
+      if (n) declared.add(n[0])
+    })
+  }
+  for (const m of stripped.matchAll(/\(([^)]*)\)\s*=>/g)) {
+    m[1].split(',').forEach((p) => {
+      const n = p.trim().match(/[A-Za-z_$][\w$]*/)
+      if (n) declared.add(n[0])
+    })
+  }
+  for (const m of stripped.matchAll(/([A-Za-z_$][\w$]*)\s*=>/g)) {
+    declared.add(m[1])
+  }
+
+  const tokens = stripped.match(/[A-Za-z_$][\w$]*/g) || []
+  for (const t of tokens) {
+    if (ALLOWED_TOP_LEVEL.has(t) || declared.has(t)) continue
+    const idx = stripped.indexOf(t)
+    const before = stripped.slice(0, idx).trimEnd()
+    const prevChar = before ? before[before.length - 1] : ''
+    if (prevChar === '.' || prevChar === '[' || prevChar === ']' || prevChar === ',') {
+      continue
+    }
+    throw new Error(`使用了白名单外的标识符: ${t}`)
+  }
+}
+
+const SANDBOX_API = Object.freeze({
+  Math: Object.freeze(Math),
+  Number,
+  JSON,
+  Object,
+  Array,
+  String,
+  Boolean,
+  Date,
+  RegExp,
+  parseInt,
+  parseFloat,
+  isNaN,
+  isFinite,
+  Infinity,
+  NaN,
+  undefined,
+})
+
 function resolvePath(obj, pathExpr) {
   const segments = String(pathExpr)
     .replace(/\[(\d+)\]/g, '.$1')
@@ -39,26 +158,9 @@ function runExtractor(src, data) {
   if (bad) {
     throw new Error(`提取函数包含禁止的 API: ${bad}`)
   }
+  checkTopLevelWhitelist(code)
 
-  const sandbox = {
-    data,
-    Math,
-    Number,
-    JSON,
-    Object,
-    Array,
-    String,
-    Boolean,
-    Date,
-    RegExp,
-    parseInt,
-    parseFloat,
-    isNaN,
-    isFinite,
-    Infinity,
-    NaN,
-    undefined,
-  }
+  const sandbox = Object.assign(Object.create(null), SANDBOX_API, { data })
   vm.createContext(sandbox)
   try {
     return vm.runInNewContext(`(${code})(data)`, sandbox, { timeout: EXTRACT_TIMEOUT_MS })
