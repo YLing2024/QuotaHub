@@ -94,22 +94,30 @@
               </div>
               <div class="field">
                 <label class="field__label" for="n-user">用户 ID（可留空，查自己）</label>
-                <input class="field__input" id="n-user" placeholder="留空查询当前用户">
+                <input class="field__input" id="n-user" placeholder="留空则不带 New-Api-User 头">
               </div>
             </div>
             <div class="form__row">
               <div class="field">
-                <label class="field__label" for="n-prefix">余额前缀</label>
-                <input class="field__input" id="n-prefix" placeholder="$ 或 ¥">
+                <label class="field__label" for="n-divider">额度换算（quota ÷ 系数）</label>
+                <input class="field__input" id="n-divider" value="500000" placeholder="500000">
               </div>
               <div class="field">
-                <label class="field__label" for="n-suffix">余额后缀</label>
-                <input class="field__input" id="n-suffix" placeholder="quota">
+                <label class="field__label" for="n-prefix">余额前缀</label>
+                <input class="field__input" id="n-prefix" placeholder="$">
               </div>
             </div>
+            <div class="form__row">
+              <div class="field">
+                <label class="field__label" for="n-suffix">余额后缀</label>
+                <input class="field__input" id="n-suffix" placeholder="USD">
+              </div>
+              <div class="field"></div>
+            </div>
             <p class="preset-hint">
-              查询接口：GET /api/user/self（或 /api/user/{id}），余额字段 data.quota。<br>
-              quota 为整数额度，与真实金额的换算取决于站点自身的汇率设置。
+              请求方式参考 cc-switch：GET /api/user/self<br>
+              请求头：Content-Type · Authorization: Bearer 访问令牌 · User-Agent: cc-switch/1.0 · New-Api-User: 用户 ID（留空则不发送）<br>
+              换算默认 500000 quota = 1 单位（NewAPI 默认汇率），按站点实际设置调整。
             </p>
           </div>
 
@@ -166,7 +174,9 @@
           </div>
 
           <div class="form__actions">
-            <button type="submit" class="btn">保存配置</button>
+            <button type="submit" class="btn" id="btn-save">保存配置</button>
+            <button type="button" class="btn btn--ghost" id="btn-cancel-edit" hidden>取消编辑</button>
+            <button type="button" class="btn btn--ghost" id="btn-validate">验证</button>
             <span class="form__msg" id="form-msg"></span>
           </div>
         </form>

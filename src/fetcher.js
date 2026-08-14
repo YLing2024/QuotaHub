@@ -71,7 +71,11 @@ async function fetchBalance(platform) {
   if (raw === undefined) {
     throw new Error(`响应中未找到路径: ${response.path}`)
   }
-  return { value: toNumber(raw), unit: (response && response.unit) || '' }
+  let value = toNumber(raw)
+  if (typeof value === 'number' && Number(response.divider)) {
+    value = value / Number(response.divider)
+  }
+  return { value, unit: (response && response.unit) || '' }
 }
 
 module.exports = { fetchBalance, resolvePath }

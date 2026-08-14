@@ -86,6 +86,15 @@ router.delete('/:id', (req, res) => {
   res.status(204).end()
 })
 
+router.post('/validate', async (req, res) => {
+  try {
+    const result = await fetchBalance(req.body || {})
+    res.json({ ok: true, ...result })
+  } catch (e) {
+    res.status(502).json({ ok: false, error: e.message })
+  }
+})
+
 router.post('/:id/test', async (req, res) => {
   const list = store.getPlatforms()
   const { idx, err } = findOr404(list, req.params.id)
@@ -114,6 +123,9 @@ router.post('/:id/fetch', async (req, res) => {
     store.saveBalances(balances)
     res.json({ ok: true, ...result, fetchedAt: balances[list[idx].id].fetchedAt })
   } catch (e) {
+    const balances = store.getBalances()
+    balances[list[idx].id] = { error: e.message, fetchedAt: new Date().toISOString() }
+    store.saveBalances(balances)
     res.status(502).json({ ok: false, error: e.message })
   }
 })
@@ -128,6 +140,7 @@ router.post('/refresh', async (req, res) => {
       balances[p.id] = { ...result, fetchedAt: new Date().toISOString() }
       results.push({ id: p.id, ok: true, ...result })
     } catch (e) {
+      balances[p.id] = { error: e.message, fetchedAt: new Date().toISOString() }
       results.push({ id: p.id, ok: false, error: e.message })
     }
   }
@@ -138,14 +151,18 @@ router.post('/refresh', async (req, res) => {
 router.get('/balances', (req, res) => {
   const balances = store.getBalances()
   const platforms = store.getPlatforms()
-  const data = platforms.map((p) => ({
-    id: p.id,
-    name: p.name,
-    prefix: (p.response && p.response.prefix) || '',
-    suffix: (p.response && p.response.suffix) || '',
-    balance: balances[p.id] ? balances[p.id].value : null,
-    fetchedAt: balances[p.id] ? balances[p.id].fetchedAt : null,
-  }))
+  const data = platforms.map((p) => {
+    const b = balances[p.id]
+    return {
+      id: p.id,
+      name: p.name,
+      prefix: (p.response && p.response.prefix) || '',
+      suffix: (p.response && p.response.suffix) || '',
+      balance: b ? b.value : null,
+      error: b ? b.error : null,
+      fetchedAt: b ? b.fetchedAt : null,
+    }
+  })
   res.json({ updatedAt: new Date().toISOString(), platforms: data })
 })
 
