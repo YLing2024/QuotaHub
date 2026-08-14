@@ -5,15 +5,73 @@ const { fetchBalance } = require('../fetcher')
 
 const router = express.Router()
 
+// 敏感请求头(凭据类): 前端一律只看到掩码, 真实值只存在于后端存储
+const SENSITIVE_HEADER = /authorization|cookie|token|api[-_]?key|secret|auth/i
+const MASK = '********'
+
+function isSensitiveHeader(name) {
+  return SENSITIVE_HEADER.test(name)
+}
+
+function maskHeaders(headers) {
+  const out = {}
+  for (const [k, v] of Object.entries(headers || {})) {
+    out[k] = isSensitiveHeader(k) && v !== '' ? MASK : v
+  }
+  return out
+}
+
+// 合并掩码: 前端回传的掩码(********)不覆盖, 保留已保存的真实值;
+// 空字符串/缺失表示用户删除了该项; 新值正常覆盖
+function mergeMaskedHeaders(saved, incoming) {
+  const out = { ...(incoming || {}) }
+  for (const [k, v] of Object.entries(out)) {
+    if (v === MASK) {
+      if (saved && saved[k] !== undefined) out[k] = saved[k]
+      else delete out[k]
+    } else if (v === '') {
+      delete out[k]
+    }
+  }
+  return out
+}
+
 function toPublic(p) {
-  return { ...p }
+  const out = { ...p }
+  // 旧数据迁移: response.prefix/suffix -> display
+  out.display = out.display || {
+    prefix: (p.response && p.response.prefix) || '',
+    suffix: (p.response && p.response.suffix) || '',
+  }
+  // 凭据脱敏: 前端任何列表/保存响应都拿不到真实 token
+  if (out.request && out.request.headers) {
+    out.request = { ...out.request, headers: maskHeaders(out.request.headers) }
+  }
+  return out
+}
+
+function pickDisplay(body) {
+  const src = (body && body.display) || {}
+  return {
+    prefix: String(src.prefix || '').trim().slice(0, 20),
+    suffix: String(src.suffix || '').trim().slice(0, 20),
+  }
 }
 
 function pickConfig(body) {
   const cfg = {}
   if (body.name !== undefined) cfg.name = String(body.name).trim()
   if (body.request !== undefined) cfg.request = body.request
-  if (body.extractor !== undefined) cfg.extractor = body.extractor
+  if (body.handler !== undefined) {
+    // 单函数模型: 保存 handler 时清掉旧字段(parse/extractor), 完成迁移
+    cfg.handler = body.handler
+    cfg.extractor = ''
+    cfg.parse = ''
+  } else {
+    if (body.extractor !== undefined) cfg.extractor = body.extractor
+    if (body.parse !== undefined) cfg.parse = body.parse
+  }
+  if (body.display !== undefined) cfg.display = pickDisplay(body)
   return cfg
 }
 
@@ -27,8 +85,20 @@ function normalizePlatform(body) {
       headers: {},
       ...(body.request || {}),
     },
+    handler: body.handler || '',
     extractor: body.extractor || '',
+    parse: body.parse || '',
+    display: pickDisplay(body),
     createdAt: new Date().toISOString(),
+  }
+}
+
+// 至少需要一个处理/提取函数, 否则抓取必然失败
+function assertHasHandler(p) {
+  if (!String(p.handler || '').trim() && !String(p.extractor || '').trim() && !String(p.parse || '').trim()) {
+    const err = new Error('需要配置处理函数（或旧的提取/解析函数）')
+    err.status = 400
+    throw err
   }
 }
 
@@ -46,8 +116,35 @@ router.get('/', (req, res) => {
   res.json(store.getPlatforms().map(toPublic))
 })
 
+// 平台排序: ids 必须是现有平台 id 的完整排列(同时影响监控面板卡片顺序)
+// 注意: 必须注册在 put('/:id') 之前, 否则会被 /:id 捕获
+router.put('/reorder', (req, res) => {
+  const ids = req.body && req.body.ids
+  if (!Array.isArray(ids)) {
+    return res.status(400).json({ error: '需要 ids 数组' })
+  }
+  const list = store.getPlatforms()
+  if (ids.length !== list.length) {
+    return res.status(400).json({ error: 'ids 数量与现有平台不匹配' })
+  }
+  const byId = new Map(list.map((p) => [p.id, p]))
+  const seen = new Set()
+  for (const id of ids) {
+    if (!byId.has(id)) return res.status(400).json({ error: `未知平台 id: ${id}` })
+    if (seen.has(id)) return res.status(400).json({ error: 'ids 包含重复项' })
+    seen.add(id)
+  }
+  store.savePlatforms(ids.map((id) => byId.get(id)))
+  res.json({ ok: true })
+})
+
 router.post('/', (req, res) => {
   const platform = normalizePlatform(req.body || {})
+  try {
+    assertHasHandler(platform)
+  } catch (e) {
+    return res.status(e.status || 400).json({ error: e.message })
+  }
   const list = store.getPlatforms()
   list.push(platform)
   store.savePlatforms(list)
@@ -61,7 +158,19 @@ router.put('/:id', (req, res) => {
 
   const old = list[idx]
   const patch = pickConfig(req.body || {})
+  // 掩码/空值的敏感请求头不覆盖, 保留已保存的真实值
+  if (patch.request && patch.request.headers) {
+    patch.request = {
+      ...patch.request,
+      headers: mergeMaskedHeaders(old.request && old.request.headers, patch.request.headers),
+    }
+  }
   list[idx] = { ...old, ...patch }
+  try {
+    assertHasHandler(list[idx])
+  } catch (e) {
+    return res.status(e.status || 400).json({ error: e.message })
+  }
   store.savePlatforms(list)
   res.json(toPublic(list[idx]))
 })
@@ -80,8 +189,16 @@ router.delete('/:id', (req, res) => {
 })
 
 router.post('/validate', async (req, res) => {
+  const body = req.body || {}
+  // 编辑已保存平台时, 表单里是掩码值: 用保存的真实值回填后再发请求(凭据不出后端)
+  if (body.maskedFrom) {
+    const saved = store.getPlatforms().find((p) => p.id === body.maskedFrom)
+    if (saved && body.request && body.request.headers) {
+      body.request.headers = mergeMaskedHeaders(saved.request && saved.request.headers, body.request.headers)
+    }
+  }
   try {
-    const result = await fetchBalance(req.body || {})
+    const result = await fetchBalance(body)
     res.json({ ok: true, ...result })
   } catch (e) {
     res.status(502).json({ ok: false, error: e.message })
@@ -149,6 +266,7 @@ router.get('/balances', (req, res) => {
     return {
       id: p.id,
       name: p.name,
+      display: toPublic(p).display,
       balance: b ? b.value : null,
       error: b ? b.error : null,
       fetchedAt: b ? b.fetchedAt : null,

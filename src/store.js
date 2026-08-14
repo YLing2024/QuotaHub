@@ -1,7 +1,8 @@
 const fs = require('fs')
 const path = require('path')
 
-const DATA_DIR = path.join(__dirname, '..', 'data')
+// 数据目录可用 QUOTAHUB_DATA_DIR 覆盖(备份、隔离测试等场景)
+const DATA_DIR = process.env.QUOTAHUB_DATA_DIR || path.join(__dirname, '..', 'data')
 const PLATFORMS_FILE = path.join(DATA_DIR, 'platforms.json')
 const BALANCES_FILE = path.join(DATA_DIR, 'balances.json')
 const PRESETS_FILE = path.join(DATA_DIR, 'presets.json')

@@ -34,6 +34,7 @@ function validatePreset(body) {
   if (!Array.isArray(body.fields) || !body.fields.length) throw new Error('至少需要一个字段')
   for (const f of body.fields) {
     if (!f || !String(f.key || '').trim()) throw new Error('字段 key 不能为空')
+    if (!/^[\w-]+$/.test(String(f.key).trim())) throw new Error('字段 key 只能包含字母、数字、下划线、连字符')
     if (!String(f.label || '').trim()) throw new Error('字段 label 不能为空')
   }
   if (!String(body.urlTemplate || '').trim()) throw new Error('URL 模板不能为空')
@@ -134,3 +135,4 @@ router.post('/:id/reset', (req, res) => {
 })
 
 module.exports = router
+module.exports.validatePreset = validatePreset

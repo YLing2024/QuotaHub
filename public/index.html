@@ -67,6 +67,7 @@
           <h3 class="section__title">快速配置</h3>
           <div class="section__head-actions">
             <span class="section__note">QUICK SETUP</span>
+            <button type="button" class="btn btn--ghost" id="btn-import-preset">导入预设</button>
             <button type="button" class="btn btn--ghost" id="btn-add-preset">+ 添加预设</button>
           </div>
         </div>
@@ -79,6 +80,9 @@
           <h3 class="section__title">添加平台</h3>
           <span class="section__note">NEW PLATFORM</span>
         </div>
+        <p class="section__desc">
+          懒得手动配置？把本仓库和调用方式丢给 AI，让它按这里的配置格式（请求方法 / URL / 请求头 / 处理函数）帮你生成平台配置，然后通过下方「导入 / 导出」导入即可。
+        </p>
 
         <form class="form" id="platform-form">
           <div class="form__row">
@@ -116,10 +120,23 @@
           </div>
           <div class="form__row">
             <div class="field field--wide">
-              <label class="field__label" for="f-extractor">提取函数（JS，data 为响应 JSON，返回余额数值）</label>
-              <textarea class="field__code" id="f-extractor" rows="6" spellcheck="false">function (data) {
-  return data.balance
+              <label class="field__label" for="f-handler">处理函数（raw 为原始响应文本，在函数内自由解析并返回余额数值：JSON 接口用 JSON.parse(raw)，非 JSON 响应可用 eval）</label>
+              <textarea class="field__code" id="f-handler" rows="8" spellcheck="false">function (raw) {
+  return JSON.parse(raw).balance
 }</textarea>
+            </div>
+          </div>
+          <div class="form__row">
+            <div class="field">
+              <label class="field__label" for="f-prefix">显示前缀</label>
+              <input class="field__input" id="f-prefix" placeholder="$">
+            </div>
+            <div class="field">
+              <label class="field__label" for="f-suffix">显示后缀</label>
+              <input class="field__input" id="f-suffix" placeholder="USD">
+            </div>
+            <div class="field field--wide">
+              <span class="field__label field__label--hint">仅影响监控面板显示，例如：$ 8.51 USD</span>
             </div>
           </div>
           <div class="form__actions">
@@ -139,8 +156,24 @@
 
       <section class="section">
         <div class="section__head">
+          <h3 class="section__title">导入 / 导出</h3>
+          <span class="section__note">JSON</span>
+        </div>
+        <p class="section__desc">导出完整配置（全部平台 + 预设）用于备份或迁移；也支持单个平台 / 单个预设的导出与导入。导入时按 id 合并，同名配置会被覆盖。</p>
+        <div class="section__actions">
+          <button type="button" class="btn" id="btn-export-all">导出完整配置</button>
+          <button type="button" class="btn btn--ghost" id="btn-import">导入配置</button>
+          <span class="form__msg" id="transfer-msg"></span>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section__head">
           <h3 class="section__title">已配置平台</h3>
-          <span class="section__note">CONFIGURED · 0</span>
+          <div class="section__head-actions">
+            <span class="section__note" id="platform-count">CONFIGURED · 0</span>
+            <button type="button" class="btn btn--ghost" id="btn-import-platform">导入平台</button>
+          </div>
         </div>
 
         <table class="table">
@@ -191,8 +224,9 @@
         <input class="field__input" id="pe-name" placeholder="NEWAPI">
       </div>
       <div class="modal__field">
-        <label class="field__label" for="pe-fields">字段（每行一个：key=显示名=占位提示）</label>
-        <textarea class="field__input field__input--area" id="pe-fields" rows="4" spellcheck="false">baseUrl=请求地址=https://your-newapi.example.com</textarea>
+        <label class="field__label" for="pe-fields-list">字段（key 与显示名称必填；key 用于 URL / 请求头 / 提取函数模板中的 {{key}} 替换）</label>
+        <div class="pe-fields" id="pe-fields-list"></div>
+        <button type="button" class="btn btn--ghost btn--sm" id="pe-field-add">+ 添加字段</button>
       </div>
       <div class="modal__row">
         <div class="modal__field">
@@ -214,7 +248,7 @@
 }</textarea>
       </div>
       <div class="modal__field">
-        <label class="field__label" for="pe-extractor">提取函数模板（JS，data 为响应 JSON，支持 {{字段key}}）</label>
+        <label class="field__label" for="pe-extractor">提取函数模板（JS，data 为 JSON 解析后的响应；使用时自动包一层 JSON.parse 生成处理函数，支持 {{字段key}}）</label>
         <textarea class="field__code" id="pe-extractor" rows="6" spellcheck="false">function (data) {
   return data.balance
 }</textarea>
@@ -223,6 +257,27 @@
         <button type="button" class="btn" id="pe-save">保存预设</button>
         <button type="button" class="btn btn--ghost" id="pe-reset" hidden>重置为默认</button>
         <button type="button" class="btn btn--ghost" id="pe-cancel">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== 导入 / 导出弹窗 ========== -->
+  <div class="modal" id="transfer-modal">
+    <div class="modal__box modal__box--wide">
+      <div class="modal__head">
+        <span class="modal__title" id="transfer-modal-title">导出配置</span>
+        <button type="button" class="modal__close" id="transfer-close">×</button>
+      </div>
+      <p class="modal__desc" id="transfer-modal-desc"></p>
+      <p class="modal__desc" id="transfer-detect"></p>
+      <div class="modal__field">
+        <textarea class="field__code" id="transfer-text" rows="14" spellcheck="false" placeholder="粘贴完整配置（含 platforms / presets）、单个平台或单个预设的 JSON…"></textarea>
+      </div>
+      <div class="modal__actions">
+        <button type="button" class="btn" id="transfer-copy">一键复制</button>
+        <button type="button" class="btn" id="transfer-confirm" hidden>确认导入</button>
+        <button type="button" class="btn btn--ghost" id="transfer-cancel">关闭</button>
+        <span class="form__msg" id="transfer-result"></span>
       </div>
     </div>
   </div>
