@@ -120,11 +120,24 @@ document.addEventListener('DOMContentLoaded', () => {
     extraKeys: { 'Ctrl-Enter': () => document.getElementById('btn-validate').click() },
   })
 
+  /* ---------- 快速配置预设卡片 ---------- */
+
+  const openPreset = (preset) => {
+    if (preset === 'newapi') {
+      openModal()
+      return
+    }
+  }
+
+  document.querySelectorAll('.quick-card').forEach((card) => {
+    card.addEventListener('click', () => openPreset(card.dataset.preset))
+  })
+
   /* ---------- NEWAPI 快速配置弹窗 ---------- */
 
   const modal = document.getElementById('newapi-modal')
-  const openModal = () => { modal.hidden = false }
-  const closeModal = () => { modal.hidden = true }
+  const openModal = () => modal.classList.add('is-open')
+  const closeModal = () => modal.classList.remove('is-open')
 
   document.getElementById('btn-newapi').addEventListener('click', openModal)
   document.getElementById('m-close').addEventListener('click', closeModal)
@@ -149,7 +162,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('f-url').value = `${base}/api/user/self`
     headerEditor.setValue(JSON.stringify(headers, null, 2))
-    extractorEditor.setValue('function (data) {\n  return data.quota / 500000\n}')
+    extractorEditor.setValue('function (data) {\n  return data.data.quota / 500000\n}')
 
     document.getElementById('m-base').value = ''
     document.getElementById('m-token').value = ''
@@ -219,7 +232,11 @@ document.addEventListener('DOMContentLoaded', () => {
     extractorEditor.setValue(
       p.extractor ||
       (p.response && p.response.path
-        ? `function (data) {\n  return ${p.response.path}${p.response.divider ? ' / ' + p.response.divider : ''}\n}`
+        ? (() => {
+            const path = p.response.path
+            const expr = /^(data\.|data\[)/.test(path) ? path : `data.${path}`
+            return `function (data) {\n  return ${expr}${p.response.divider ? ' / ' + p.response.divider : ''}\n}`
+          })()
         : 'function (data) {\n  return data.balance\n}')
     )
   }

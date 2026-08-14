@@ -264,10 +264,14 @@ a {
   position: fixed;
   inset: 0;
   background: rgba(17, 17, 17, 0.6);
-  display: flex;
   align-items: center;
   justify-content: center;
   z-index: 100;
+  display: none;
+}
+
+.modal.is-open {
+  display: flex;
 }
 
 .modal__box {
@@ -532,6 +536,53 @@ a {
   font-size: 11px;
   letter-spacing: 2px;
   color: var(--gray);
+}
+
+.section__desc {
+  font-size: 12px;
+  color: var(--gray);
+  letter-spacing: 1px;
+  margin-bottom: 20px;
+}
+
+/* ---------- 快速配置卡片 ---------- */
+
+.quick-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 20px;
+}
+
+.quick-card {
+  text-align: left;
+  border: 1px solid var(--black);
+  background: var(--white);
+  padding: 20px;
+  cursor: pointer;
+  font-family: inherit;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: box-shadow 0.15s, transform 0.15s, border-color 0.15s;
+}
+
+.quick-card:hover {
+  box-shadow: 6px 6px 0 var(--black);
+  transform: translate(-2px, -2px);
+  border-color: var(--red);
+}
+
+.quick-card__name {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 2px;
+}
+
+.quick-card__desc {
+  font-size: 11px;
+  color: var(--gray);
+  letter-spacing: 1px;
+  line-height: 1.6;
 }
 
 .section__actions {
