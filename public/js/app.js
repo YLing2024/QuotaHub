@@ -51,7 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
     sessionStorage.setItem('quotahub-tab', name)
   }
   const savedTab = sessionStorage.getItem('quotahub-tab')
-  if (savedTab && ['dashboard', 'config', 'logs', 'settings'].includes(savedTab)) {
+  if (savedTab && ['dashboard', 'config', 'logs'].includes(savedTab)) {
     switchTab(savedTab)
   }
   nav.addEventListener('click', (e) => {
@@ -91,16 +91,19 @@ document.addEventListener('DOMContentLoaded', () => {
           const d = p.display || {}
           const affix = (t) => (t ? `<span class="card__affix">${escapeHtml(t)}</span>` : '')
           const balanceHtml = p.balance == null ? '—' : `${affix(d.prefix)}${fmt(p.balance)}${affix(d.suffix)}`
-          const statusTag = p.error ? '获取失败' : p.balance == null ? '待获取' : '已获取'
+          const titleHtml = p.url
+            ? `<a class="card__platform" href="${escapeHtml(p.url)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(p.name)}">${escapeHtml(p.name)}</a>`
+            : `<span class="card__platform">${escapeHtml(p.name)}</span>`
+          const refreshBtn = `<button class="card__refresh" data-id="${escapeHtml(p.id)}" data-name="${escapeHtml(p.name)}" title="刷新此平台" aria-label="刷新此平台">↻</button>`
           const chartBtn = p.balance == null
             ? ''
             : `<button class="card__chart" data-id="${escapeHtml(p.id)}" data-name="${escapeHtml(p.name)}" title="查看余额变化趋势" aria-label="查看余额变化趋势">📊</button>`
           return `
           <article class="card ${p.balance == null ? 'card--empty' : ''} ${p.error ? 'card--error' : ''}">
             <div class="card__top">
-              <span class="card__platform">${escapeHtml(p.name)}</span>
+              ${titleHtml}
               <span class="card__top-right">
-                <span class="card__tag ${p.error ? 'tag--warn' : ''}">${statusTag}</span>
+                ${refreshBtn}
                 ${chartBtn}
               </span>
             </div>
@@ -453,6 +456,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     return {
       name: document.getElementById('f-name').value,
+      url: document.getElementById('f-homepage').value.trim(),
       request: {
         method: methodSelect.value,
         url: document.getElementById('f-url').value,
@@ -497,6 +501,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const fillForm = (p) => {
     document.getElementById('f-name').value = p.name || ''
+    document.getElementById('f-homepage').value = p.url || ''
     methodSelect.value = (p.request && p.request.method) || 'GET'
     document.getElementById('f-url').value = (p.request && p.request.url) || ''
     headerEditor.setValue(JSON.stringify((p.request && p.request.headers) || {}, null, 2))
@@ -1029,8 +1034,31 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // 事件委托: 卡片上的折线图图标按钮
+  const refreshPlatform = async (id, name) => {
+    const btn = grid.querySelector(`.card__refresh[data-id="${CSS.escape(id)}"]`)
+    if (btn) {
+      btn.disabled = true
+      btn.textContent = '…'
+    }
+    try {
+      await api(`/api/platforms/${id}/fetch`, { method: 'POST' })
+      await loadDashboard()
+    } catch (e) {
+      lastUpdate.textContent = `LAST UPDATE — 刷新失败: ${e.message}`
+      if (btn) {
+        btn.disabled = false
+        btn.textContent = '↻'
+      }
+    }
+  }
+
+  // 事件委托: 卡片上的折线图 / 独立刷新按钮
   grid.addEventListener('click', (e) => {
+    const refreshBtn = e.target.closest('.card__refresh')
+    if (refreshBtn) {
+      refreshPlatform(refreshBtn.dataset.id, refreshBtn.dataset.name)
+      return
+    }
     const btn = e.target.closest('.card__chart')
     if (!btn) return
     openChart(btn.dataset.id, btn.dataset.name)
@@ -1104,10 +1132,7 @@ document.addEventListener('DOMContentLoaded', () => {
   /* ---------- 自动采集设置 ---------- */
 
   const collectInput = document.getElementById('collect-interval')
-  const settingsCollectInput = document.getElementById('settings-collect-interval')
   const collectMsg = document.getElementById('collect-msg')
-  const settingsMsg = document.getElementById('settings-msg')
-  const settingsHint = document.getElementById('settings-hint')
   const monitorStatus = document.getElementById('monitor-status')
 
   const setMsg2 = (el, text, isError) => {
@@ -1118,16 +1143,10 @@ document.addEventListener('DOMContentLoaded', () => {
   const applySettingsUi = (settings) => {
     const sec = settings && Number(settings.collectIntervalSeconds) >= 0 ? Number(settings.collectIntervalSeconds) : 0
     collectInput.value = sec
-    settingsCollectInput.value = sec
     if (monitorStatus) {
       monitorStatus.textContent = sec > 0
         ? `自动采集 · 每 ${sec} 秒`
         : '自动采集 · 关闭'
-    }
-    if (settingsHint) {
-      settingsHint.textContent = sec > 0
-        ? `当前设置：每 ${sec} 秒自动采集一次所有平台余额，并写入余额历史供折线图展示。`
-        : '当前设置：自动采集已关闭（设为 0 秒）。'
     }
   }
 
@@ -1161,7 +1180,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   document.getElementById('btn-save-collect').addEventListener('click', () => saveCollect(collectInput, collectMsg))
-  document.getElementById('btn-save-settings').addEventListener('click', () => saveCollect(settingsCollectInput, settingsMsg))
 
   loadPresets()
   loadPlatforms()

@@ -18,7 +18,6 @@
       <button class="header__link is-active" data-tab="dashboard">监控面板</button>
       <button class="header__link" data-tab="config">平台配置</button>
       <button class="header__link" data-tab="logs">操作日志</button>
-      <button class="header__link" data-tab="settings">设置</button>
     </nav>
     <div class="header__status">
       <span class="dot"></span>
@@ -108,6 +107,12 @@
             <div class="field field--wide">
               <label class="field__label" for="f-name">平台名称</label>
               <input class="field__input" id="f-name" placeholder="DeepSeek">
+            </div>
+          </div>
+          <div class="form__row">
+            <div class="field field--wide">
+              <label class="field__label" for="f-homepage">平台主页 URL</label>
+              <input class="field__input" id="f-homepage" placeholder="https://platform.example.com">
             </div>
           </div>
           <div class="form__row">
@@ -235,33 +240,6 @@
         <div class="log-list" id="log-list">
           <div class="log-empty">暂无操作日志</div>
         </div>
-      </section>
-
-    </div>
-
-    <!-- ========== TAB: 设置 ========== -->
-    <div class="tab" id="tab-settings">
-
-      <section class="hero hero--small">
-        <div class="hero__meta">SYSTEM · SETTINGS</div>
-        <h2 class="hero__title">设置</h2>
-        <div class="hero__line"></div>
-        <p class="hero__desc">配置自动采集间隔等系统选项。</p>
-      </section>
-
-      <section class="section">
-        <div class="section__head">
-          <h3 class="section__title">自动采集</h3>
-          <span class="section__note">AUTO COLLECTION</span>
-        </div>
-        <p class="section__desc">配置每隔多久自动采集一次所有平台余额，采集结果会写入余额历史（折线图数据源）。0 秒表示关闭自动采集。</p>
-        <div class="collect-row">
-          <label class="field__label" for="settings-collect-interval">采集间隔（秒）</label>
-          <input class="field__input collect-row__input" id="settings-collect-interval" type="number" min="0" step="1" placeholder="0">
-          <button class="btn btn--ghost" id="btn-save-settings">保存</button>
-          <span class="form__msg" id="settings-msg"></span>
-        </div>
-        <div class="logs-note" id="settings-hint"></div>
       </section>
 
     </div>
