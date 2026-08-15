@@ -39,6 +39,7 @@ function pickConfig(body) {
     if (body.parse !== undefined) cfg.parse = body.parse
   }
   if (body.display !== undefined) cfg.display = pickDisplay(body)
+  if (body.url !== undefined) cfg.url = String(body.url).trim().slice(0, 500)
   return cfg
 }
 
@@ -56,6 +57,7 @@ function normalizePlatform(body) {
     extractor: body.extractor || '',
     parse: body.parse || '',
     display: pickDisplay(body),
+    url: String(body.url || '').trim().slice(0, 500),
     createdAt: new Date().toISOString(),
   }
 }
@@ -261,6 +263,7 @@ router.get('/balances', (req, res) => {
     return {
       id: p.id,
       name: p.name,
+      url: p.url,
       display: toPublic(p).display,
       balance: b ? b.value : null,
       error: b ? b.error : null,
