@@ -17,6 +17,8 @@
     <nav class="header__nav" id="tab-nav">
       <button class="header__link is-active" data-tab="dashboard">监控面板</button>
       <button class="header__link" data-tab="config">平台配置</button>
+      <button class="header__link" data-tab="logs">操作日志</button>
+      <button class="header__link" data-tab="settings">设置</button>
     </nav>
     <div class="header__status">
       <span class="dot"></span>
@@ -42,12 +44,29 @@
       <section class="section">
         <div class="section__head">
           <h3 class="section__title">平台余额总览</h3>
-          <span class="section__note" id="last-update">LAST UPDATE —</span>
+          <div class="section__head-actions">
+            <span class="section__note" id="last-update">LAST UPDATE —</span>
+            <span class="section__note" id="monitor-status"></span>
+          </div>
         </div>
         <div class="section__actions">
           <button class="btn" id="btn-refresh">立即刷新</button>
         </div>
         <div class="grid" id="platform-grid"></div>
+      </section>
+
+      <section class="section">
+        <div class="section__head">
+          <h3 class="section__title">自动采集</h3>
+          <span class="section__note">AUTO COLLECTION</span>
+        </div>
+        <p class="section__desc">配置每隔多久自动采集一次所有平台余额，采集结果会写入余额历史（折线图数据源）。0 秒表示关闭自动采集。</p>
+        <div class="collect-row">
+          <label class="field__label" for="collect-interval">采集间隔（秒）</label>
+          <input class="field__input collect-row__input" id="collect-interval" type="number" min="0" step="1" placeholder="0">
+          <button class="btn btn--ghost" id="btn-save-collect">保存</button>
+          <span class="form__msg" id="collect-msg"></span>
+        </div>
       </section>
 
     </div>
@@ -194,6 +213,59 @@
 
     </div>
 
+    <!-- ========== TAB: 操作日志 ========== -->
+    <div class="tab" id="tab-logs">
+
+      <section class="hero hero--small">
+        <div class="hero__meta">OPERATION · LOGS</div>
+        <h2 class="hero__title">操作日志</h2>
+        <div class="hero__line"></div>
+        <p class="hero__desc">记录平台增删改、余额获取、导入导出、设置变更等操作。<br>日志持久化保存，最多保留最近 2000 条。</p>
+      </section>
+
+      <section class="section">
+        <div class="section__head">
+          <h3 class="section__title">日志列表</h3>
+          <div class="section__head-actions">
+            <span class="section__note" id="log-count">LOGS · 0</span>
+            <button type="button" class="btn btn--ghost" id="btn-refresh-logs">刷新</button>
+            <button type="button" class="btn btn--ghost btn--danger" id="btn-clear-logs">清空日志</button>
+          </div>
+        </div>
+        <div class="log-list" id="log-list">
+          <div class="log-empty">暂无操作日志</div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- ========== TAB: 设置 ========== -->
+    <div class="tab" id="tab-settings">
+
+      <section class="hero hero--small">
+        <div class="hero__meta">SYSTEM · SETTINGS</div>
+        <h2 class="hero__title">设置</h2>
+        <div class="hero__line"></div>
+        <p class="hero__desc">配置自动采集间隔等系统选项。</p>
+      </section>
+
+      <section class="section">
+        <div class="section__head">
+          <h3 class="section__title">自动采集</h3>
+          <span class="section__note">AUTO COLLECTION</span>
+        </div>
+        <p class="section__desc">配置每隔多久自动采集一次所有平台余额，采集结果会写入余额历史（折线图数据源）。0 秒表示关闭自动采集。</p>
+        <div class="collect-row">
+          <label class="field__label" for="settings-collect-interval">采集间隔（秒）</label>
+          <input class="field__input collect-row__input" id="settings-collect-interval" type="number" min="0" step="1" placeholder="0">
+          <button class="btn btn--ghost" id="btn-save-settings">保存</button>
+          <span class="form__msg" id="settings-msg"></span>
+        </div>
+        <div class="logs-note" id="settings-hint"></div>
+      </section>
+
+    </div>
+
   </main>
 
   <!-- ========== 预设使用弹窗 ========== -->
@@ -278,6 +350,32 @@
         <button type="button" class="btn" id="transfer-confirm" hidden>确认导入</button>
         <button type="button" class="btn btn--ghost" id="transfer-cancel">关闭</button>
         <span class="form__msg" id="transfer-result"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== 余额折线图弹窗 ========== -->
+  <div class="modal" id="chart-modal">
+    <div class="modal__box modal__box--wide">
+      <div class="modal__head">
+        <span class="modal__title" id="chart-modal-title">余额变化趋势</span>
+        <button type="button" class="modal__close" id="chart-close">×</button>
+      </div>
+      <div class="chart-toolbar">
+        <label class="field__label" for="chart-range">时间范围</label>
+        <select class="field__input chart-toolbar__select" id="chart-range">
+          <option value="all">全部</option>
+          <option value="24h">最近 24 小时</option>
+          <option value="7d">最近 7 天</option>
+          <option value="30d">最近 30 天</option>
+        </select>
+        <span class="form__msg" id="chart-stats"></span>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="chart-canvas"></canvas>
+      </div>
+      <div class="modal__actions">
+        <button type="button" class="btn btn--ghost" id="chart-cancel">关闭</button>
       </div>
     </div>
   </div>

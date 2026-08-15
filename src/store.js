@@ -6,6 +6,8 @@ const DATA_DIR = process.env.QUOTAHUB_DATA_DIR || path.join(__dirname, '..', 'da
 const PLATFORMS_FILE = path.join(DATA_DIR, 'platforms.json')
 const BALANCES_FILE = path.join(DATA_DIR, 'balances.json')
 const PRESETS_FILE = path.join(DATA_DIR, 'presets.json')
+const SETTINGS_FILE = path.join(DATA_DIR, 'settings.json')
+const HISTORY_FILE = path.join(DATA_DIR, 'history.json')
 
 function ensureFile(file, initial) {
   fs.mkdirSync(DATA_DIR, { recursive: true })
@@ -63,6 +65,8 @@ module.exports = {
   PLATFORMS_FILE,
   BALANCES_FILE,
   PRESETS_FILE,
+  SETTINGS_FILE,
+  HISTORY_FILE,
   getPlatforms,
   savePlatforms,
   getBalances,

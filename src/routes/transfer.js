@@ -2,18 +2,23 @@ const crypto = require('crypto')
 const express = require('express')
 const store = require('../store')
 const { validatePreset } = require('./presets')
+const logger = require('../logger')
 
 const router = express.Router()
 
 // 导出完整配置: 全部平台 + 用户预设(不含抓取结果余额)
 router.get('/export', (req, res) => {
-  res.json({
+  const payload = {
     type: 'quotahub-config',
     version: 1,
     exportedAt: new Date().toISOString(),
     platforms: store.getPlatforms(),
     presets: store.getPresets(),
+  }
+  logger.log('export', `导出配置: ${payload.platforms.length} 个平台、${payload.presets.length} 个预设`, {
+    meta: { platforms: payload.platforms.length, presets: payload.presets.length },
   })
+  res.json(payload)
 })
 
 function isPlatformLike(obj) {
@@ -136,6 +141,9 @@ router.post('/import', (req, res) => {
   }
 
   res.json(result)
+  logger.log('import', `导入配置: ${result.platforms} 个平台、${result.presets} 个预设${result.errors.length ? ` (跳过 ${result.errors.length} 项)` : ''}`, {
+    meta: { platforms: result.platforms, presets: result.presets, skipped: result.errors.length },
+  })
 })
 
 module.exports = router
