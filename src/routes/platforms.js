@@ -2,6 +2,8 @@ const crypto = require('crypto')
 const express = require('express')
 const store = require('../store')
 const { fetchBalance } = require('../fetcher')
+const logger = require('../logger')
+const history = require('../history')
 
 const router = express.Router()
 
@@ -100,6 +102,7 @@ router.put('/reorder', (req, res) => {
     seen.add(id)
   }
   store.savePlatforms(ids.map((id) => byId.get(id)))
+  logger.log('reorder', '调整平台排序', { meta: { count: ids.length } })
   res.json({ ok: true })
 })
 
@@ -113,6 +116,10 @@ router.post('/', (req, res) => {
   const list = store.getPlatforms()
   list.push(platform)
   store.savePlatforms(list)
+  logger.log('create', `新增平台「${platform.name}」`, {
+    platformId: platform.id,
+    platformName: platform.name,
+  })
   res.status(201).json(toPublic(platform))
 })
 
@@ -130,6 +137,10 @@ router.put('/:id', (req, res) => {
     return res.status(e.status || 400).json({ error: e.message })
   }
   store.savePlatforms(list)
+  logger.log('update', `更新平台「${list[idx].name}」`, {
+    platformId: list[idx].id,
+    platformName: list[idx].name,
+  })
   res.json(toPublic(list[idx]))
 })
 
@@ -143,6 +154,11 @@ router.delete('/:id', (req, res) => {
   const balances = store.getBalances()
   delete balances[removed.id]
   store.saveBalances(balances)
+  history.remove(removed.id)
+  logger.log('delete', `删除平台「${removed.name}」`, {
+    platformId: removed.id,
+    platformName: removed.name,
+  })
   res.status(204).end()
 })
 
@@ -182,11 +198,22 @@ router.post('/:id/fetch', async (req, res) => {
       fetchedAt: new Date().toISOString(),
     }
     store.saveBalances(balances)
+    history.record(list[idx].id, result.value, balances[list[idx].id].fetchedAt)
+    logger.log('fetch', `获取「${list[idx].name}」余额成功: ${result.value}`, {
+      platformId: list[idx].id,
+      platformName: list[idx].name,
+      meta: { value: result.value },
+    })
     res.json({ ok: true, ...result, fetchedAt: balances[list[idx].id].fetchedAt })
   } catch (e) {
     const balances = store.getBalances()
     balances[list[idx].id] = { error: e.message, fetchedAt: new Date().toISOString() }
     store.saveBalances(balances)
+    logger.log('fetch', `获取「${list[idx].name}」余额失败: ${e.message}`, {
+      platformId: list[idx].id,
+      platformName: list[idx].name,
+      meta: { error: e.message },
+    })
     res.status(502).json({ ok: false, error: e.message })
   }
 })
@@ -195,18 +222,35 @@ router.post('/refresh', async (req, res) => {
   const list = store.getPlatforms()
   const balances = store.getBalances()
   const results = []
+  let ok = 0
+  let fail = 0
   for (const p of list) {
     try {
       const result = await fetchBalance(p)
-      balances[p.id] = { ...result, fetchedAt: new Date().toISOString() }
+      const fetchedAt = new Date().toISOString()
+      balances[p.id] = { ...result, fetchedAt }
+      history.record(p.id, result.value, fetchedAt)
       results.push({ id: p.id, ok: true, ...result })
+      ok++
     } catch (e) {
       balances[p.id] = { error: e.message, fetchedAt: new Date().toISOString() }
       results.push({ id: p.id, ok: false, error: e.message })
+      fail++
     }
   }
   store.saveBalances(balances)
+  logger.log('refresh', `手动刷新完成: 成功 ${ok} 个, 失败 ${fail} 个`, {
+    meta: { ok, fail },
+  })
   res.json({ ok: true, results })
+})
+
+router.get('/:id/history', (req, res) => {
+  const list = store.getPlatforms()
+  const { idx, err } = findOr404(list, req.params.id)
+  if (err) return res.status(err.status).json({ error: err.message })
+  const points = history.get(req.params.id)
+  res.json({ id: req.params.id, name: list[idx].name, points })
 })
 
 router.get('/balances', (req, res) => {

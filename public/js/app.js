@@ -51,12 +51,15 @@ document.addEventListener('DOMContentLoaded', () => {
     sessionStorage.setItem('quotahub-tab', name)
   }
   const savedTab = sessionStorage.getItem('quotahub-tab')
-  if (savedTab && (savedTab === 'dashboard' || savedTab === 'config')) {
+  if (savedTab && ['dashboard', 'config', 'logs', 'settings'].includes(savedTab)) {
     switchTab(savedTab)
   }
   nav.addEventListener('click', (e) => {
     const btn = e.target.closest('.header__link')
-    if (btn) switchTab(btn.dataset.tab)
+    if (btn) {
+      switchTab(btn.dataset.tab)
+      if (btn.dataset.tab === 'logs') loadLogs()
+    }
   })
 
   /* ---------- 监控面板 ---------- */
@@ -88,11 +91,18 @@ document.addEventListener('DOMContentLoaded', () => {
           const d = p.display || {}
           const affix = (t) => (t ? `<span class="card__affix">${escapeHtml(t)}</span>` : '')
           const balanceHtml = p.balance == null ? '—' : `${affix(d.prefix)}${fmt(p.balance)}${affix(d.suffix)}`
+          const statusTag = p.error ? '获取失败' : p.balance == null ? '待获取' : '已获取'
+          const chartBtn = p.balance == null
+            ? ''
+            : `<button class="card__chart" data-id="${escapeHtml(p.id)}" data-name="${escapeHtml(p.name)}" title="查看余额变化趋势" aria-label="查看余额变化趋势">📊</button>`
           return `
           <article class="card ${p.balance == null ? 'card--empty' : ''} ${p.error ? 'card--error' : ''}">
             <div class="card__top">
               <span class="card__platform">${escapeHtml(p.name)}</span>
-              <span class="card__tag ${p.error ? 'tag--warn' : ''}">${p.error ? '获取失败' : p.balance == null ? '待获取' : '已获取'}</span>
+              <span class="card__top-right">
+                <span class="card__tag ${p.error ? 'tag--warn' : ''}">${statusTag}</span>
+                ${chartBtn}
+              </span>
             </div>
             <div class="card__balance">${balanceHtml}</div>
             <div class="card__foot ${p.error ? 'card__foot--error' : ''}">${escapeHtml(p.error || (p.fetchedAt ? `获取于 ${new Date(p.fetchedAt).toLocaleString('zh-CN')}` : '尚未获取'))}</div>
@@ -847,7 +857,314 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   })
 
+  /* ---------- 余额折线图 ---------- */
+
+  const chartModal = document.getElementById('chart-modal')
+  const chartCanvas = document.getElementById('chart-canvas')
+  const chartRange = document.getElementById('chart-range')
+  const chartStats = document.getElementById('chart-stats')
+  let chartPlatformId = null
+  let chartPlatformName = ''
+  let chartPoints = []
+
+  const closeChart = () => closeModal(chartModal)
+  document.getElementById('chart-close').addEventListener('click', closeChart)
+  document.getElementById('chart-cancel').addEventListener('click', closeChart)
+  chartModal.addEventListener('click', (e) => {
+    if (e.target === chartModal) closeChart()
+  })
+  chartRange.addEventListener('change', () => { drawChart() })
+
+  const filterPoints = (points, range) => {
+    if (!points.length || range === 'all') return points
+    const now = Date.now()
+    const ms = { '24h': 24 * 3600 * 1000, '7d': 7 * 24 * 3600 * 1000, '30d': 30 * 24 * 3600 * 1000 }[range]
+    const cutoff = now - ms
+    return points.filter((pt) => new Date(pt.t).getTime() >= cutoff)
+  }
+
+  function drawChart() {
+    const ctx = chartCanvas.getContext('2d')
+    const dpr = window.devicePixelRatio || 1
+    const cssW = chartCanvas.clientWidth || 600
+    const cssH = chartCanvas.clientHeight || 320
+    chartCanvas.width = cssW * dpr
+    chartCanvas.height = cssH * dpr
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
+    ctx.clearRect(0, 0, cssW, cssH)
+
+    const pts = filterPoints(chartPoints, chartRange.value)
+    const pad = { l: 56, r: 20, t: 20, b: 40 }
+    const w = cssW - pad.l - pad.r
+    const h = cssH - pad.t - pad.b
+
+    // 空态
+    if (!pts.length) {
+      ctx.fillStyle = '#888'
+      ctx.font = '13px "Helvetica Neue", sans-serif'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.fillText('暂无余额历史数据（获取余额后自动记录采样点）', cssW / 2, cssH / 2)
+      chartStats.textContent = '暂无数据'
+      return
+    }
+
+    const values = pts.map((p) => p.v)
+    const times = pts.map((p) => new Date(p.t).getTime())
+    let min = Math.min(...values)
+    let max = Math.max(...values)
+    if (min === max) { const span = Math.abs(min) * 0.1 || 1; min -= span; max += span }
+    // 留白
+    const padScale = (max - min) * 0.1 || 1
+    min -= padScale
+    max += padScale
+
+    const x = (i) => pad.l + (times.length === 1 ? w / 2 : (i / (times.length - 1)) * w)
+    const y = (v) => pad.t + h - ((v - min) / (max - min)) * h
+
+    // 网格与 Y 轴刻度
+    ctx.strokeStyle = '#eee'
+    ctx.fillStyle = '#888'
+    ctx.lineWidth = 1
+    ctx.font = '11px "Helvetica Neue", sans-serif'
+    ctx.textAlign = 'right'
+    ctx.textBaseline = 'middle'
+    const tickCount = 5
+    for (let i = 0; i <= tickCount; i++) {
+      const tv = max - ((max - min) / tickCount) * i
+      const ty = pad.t + (h / tickCount) * i
+      ctx.beginPath()
+      ctx.moveTo(pad.l, ty)
+      ctx.lineTo(pad.l + w, ty)
+      ctx.stroke()
+      ctx.fillText(fmt(tv), pad.l - 8, ty)
+    }
+
+    // X 轴时间刻度(最多 6 个)
+    const xTickCount = Math.min(6, times.length)
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'top'
+    for (let i = 0; i < xTickCount; i++) {
+      const idx = xTickCount === 1 ? 0 : Math.round((i / (xTickCount - 1)) * (times.length - 1))
+      const tx = x(idx)
+      const label = new Date(times[idx]).toLocaleString('zh-CN', {
+        month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+      })
+      ctx.fillText(label, tx, pad.t + h + 8)
+    }
+
+    // 折线
+    ctx.strokeStyle = '#e4002b'
+    ctx.lineWidth = 2
+    ctx.lineJoin = 'round'
+    ctx.lineCap = 'round'
+    ctx.beginPath()
+    pts.forEach((p, i) => {
+      const px = x(i)
+      const py = y(p.v)
+      if (i === 0) ctx.moveTo(px, py)
+      else ctx.lineTo(px, py)
+    })
+    ctx.stroke()
+
+    // 面积填充
+    const gradient = ctx.createLinearGradient(0, pad.t, 0, pad.t + h)
+    gradient.addColorStop(0, 'rgba(228, 0, 43, 0.18)')
+    gradient.addColorStop(1, 'rgba(228, 0, 43, 0)')
+    ctx.lineTo(x(pts.length - 1), pad.t + h)
+    ctx.lineTo(x(0), pad.t + h)
+    ctx.closePath()
+    ctx.fillStyle = gradient
+    ctx.fill()
+
+    // 数据点
+    pts.forEach((p, i) => {
+      ctx.beginPath()
+      ctx.arc(x(i), y(p.v), 3, 0, Math.PI * 2)
+      ctx.fillStyle = '#e4002b'
+      ctx.fill()
+    })
+
+    // 首/末值标注
+    const labelAt = (idx, align) => {
+      const p = pts[idx]
+      const vx = x(idx)
+      const vy = y(p.v)
+      ctx.fillStyle = '#111'
+      ctx.font = 'bold 12px "Helvetica Neue", sans-serif'
+      ctx.textAlign = align
+      ctx.textBaseline = 'bottom'
+      ctx.fillText(fmt(p.v), vx, vy - 6)
+    }
+    if (pts.length > 1) {
+      labelAt(0, 'left')
+      labelAt(pts.length - 1, 'right')
+    }
+
+    // 统计摘要
+    const first = pts[0].v
+    const lastV = pts[pts.length - 1].v
+    const diff = lastV - first
+    const diffPct = first !== 0 ? (diff / Math.abs(first)) * 100 : 0
+    const arrow = diff > 0 ? '↑' : diff < 0 ? '↓' : '→'
+    chartStats.textContent = `${pts.length} 个采样点 · ${arrow} ${diff >= 0 ? '+' : ''}${fmt(diff)} (${diffPct >= 0 ? '+' : ''}${fmt(diffPct)}%)`
+  }
+
+  const openChart = async (id, name) => {
+    chartPlatformId = id
+    chartPlatformName = name
+    document.getElementById('chart-modal-title').textContent = `余额变化趋势 — ${name}`
+    chartRange.value = 'all'
+    chartStats.textContent = '加载中…'
+    openModal(chartModal)
+    try {
+      const data = await api(`/api/platforms/${id}/history`)
+      chartPoints = (data && data.points) || []
+      // 弹窗可见后 canvas 才有尺寸, 重绘一次
+      requestAnimationFrame(() => drawChart())
+    } catch (e) {
+      chartPoints = []
+      chartStats.textContent = `加载失败: ${e.message}`
+      drawChart()
+    }
+  }
+
+  // 事件委托: 卡片上的折线图图标按钮
+  grid.addEventListener('click', (e) => {
+    const btn = e.target.closest('.card__chart')
+    if (!btn) return
+    openChart(btn.dataset.id, btn.dataset.name)
+  })
+
+  /* ---------- 操作日志 ---------- */
+
+  const logList = document.getElementById('log-list')
+  const logCount = document.getElementById('log-count')
+
+  const ACTION_LABEL = {
+    create: '新增平台',
+    update: '更新平台',
+    delete: '删除平台',
+    fetch: '获取余额',
+    refresh: '手动刷新',
+    test: '测试连接',
+    reorder: '平台排序',
+    import: '导入配置',
+    export: '导出配置',
+    settings: '设置变更',
+    'clear-logs': '清空日志',
+    start: '系统启动',
+    unknown: '其他',
+  }
+
+  const renderLogs = (data) => {
+    const logs = (data && data.logs) || []
+    const total = data && data.total != null ? data.total : logs.length
+    logCount.textContent = `LOGS · ${total}`
+    if (!logs.length) {
+      logList.innerHTML = '<div class="log-empty">暂无操作日志</div>'
+      return
+    }
+    logList.innerHTML = logs.map((l) => {
+      const detail = escapeHtml(l.detail || '')
+      const platform = l.platformName ? ` · <span class="log__platform">${escapeHtml(l.platformName)}</span>` : ''
+      const meta = l.meta && typeof l.meta === 'object' && Object.keys(l.meta).length
+        ? `<span class="log__meta">${escapeHtml(JSON.stringify(l.meta))}</span>`
+        : ''
+      return `
+        <div class="log-item">
+          <span class="log__time">${escapeHtml(new Date(l.time).toLocaleString('zh-CN'))}</span>
+          <span class="log__action log__action--${escapeHtml(l.action)}">${escapeHtml(ACTION_LABEL[l.action] || l.action)}</span>
+          <span class="log__detail">${detail}${platform}</span>
+          ${meta}
+        </div>`
+    }).join('')
+  }
+
+  async function loadLogs() {
+    try {
+      renderLogs(await api('/api/logs?limit=500'))
+    } catch (e) {
+      logList.innerHTML = `<div class="log-empty">加载失败: ${escapeHtml(e.message)}</div>`
+    }
+  }
+
+  document.getElementById('btn-refresh-logs').addEventListener('click', loadLogs)
+
+  document.getElementById('btn-clear-logs').addEventListener('click', async () => {
+    if (!confirm('确定清空所有操作日志？此操作不可撤销。')) return
+    try {
+      await api('/api/logs', { method: 'DELETE' })
+      await loadLogs()
+    } catch (e) {
+      alert(`清空失败: ${e.message}`)
+    }
+  })
+
+  /* ---------- 自动采集设置 ---------- */
+
+  const collectInput = document.getElementById('collect-interval')
+  const settingsCollectInput = document.getElementById('settings-collect-interval')
+  const collectMsg = document.getElementById('collect-msg')
+  const settingsMsg = document.getElementById('settings-msg')
+  const settingsHint = document.getElementById('settings-hint')
+  const monitorStatus = document.getElementById('monitor-status')
+
+  const setMsg2 = (el, text, isError) => {
+    el.textContent = text
+    el.classList.toggle('is-error', Boolean(isError))
+  }
+
+  const applySettingsUi = (settings) => {
+    const sec = settings && Number(settings.collectIntervalSeconds) >= 0 ? Number(settings.collectIntervalSeconds) : 0
+    collectInput.value = sec
+    settingsCollectInput.value = sec
+    if (monitorStatus) {
+      monitorStatus.textContent = sec > 0
+        ? `自动采集 · 每 ${sec} 秒`
+        : '自动采集 · 关闭'
+    }
+    if (settingsHint) {
+      settingsHint.textContent = sec > 0
+        ? `当前设置：每 ${sec} 秒自动采集一次所有平台余额，并写入余额历史供折线图展示。`
+        : '当前设置：自动采集已关闭（设为 0 秒）。'
+    }
+  }
+
+  const loadSettings = async () => {
+    try {
+      applySettingsUi(await api('/api/settings'))
+    } catch (e) {
+      applySettingsUi({ collectIntervalSeconds: 0 })
+    }
+  }
+
+  const saveCollect = async (inputEl, msgEl) => {
+    const raw = Number(inputEl.value)
+    const sec = Number.isFinite(raw) && raw >= 0 ? Math.floor(raw) : null
+    if (sec === null) {
+      setMsg2(msgEl, '请输入大于等于 0 的整数', true)
+      return
+    }
+    if (sec > 86400) {
+      setMsg2(msgEl, '间隔不能超过 86400 秒（1 天）', true)
+      return
+    }
+    setMsg2(msgEl, '保存中…')
+    try {
+      const next = await api('/api/settings', { method: 'PUT', body: JSON.stringify({ collectIntervalSeconds: sec }) })
+      applySettingsUi(next)
+      setMsg2(msgEl, sec === 0 ? '已关闭自动采集' : `已设置每 ${sec} 秒采集一次`)
+    } catch (e) {
+      setMsg2(msgEl, `保存失败: ${e.message}`, true)
+    }
+  }
+
+  document.getElementById('btn-save-collect').addEventListener('click', () => saveCollect(collectInput, collectMsg))
+  document.getElementById('btn-save-settings').addEventListener('click', () => saveCollect(settingsCollectInput, settingsMsg))
+
   loadPresets()
   loadPlatforms()
   loadDashboard()
+  loadSettings()
 })
