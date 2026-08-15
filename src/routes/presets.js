@@ -23,6 +23,40 @@ const BUILTIN = [
     },
     extractorTemplate: 'function (data) {\n  return data.data.quota / 500000\n}',
   },
+  {
+    id: 'deepseek',
+    name: 'DeepSeek',
+    fields: [
+      { key: 'apiKey', label: 'API Key', placeholder: 'sk-你的 API Key' },
+    ],
+    method: 'GET',
+    urlTemplate: 'https://api.deepseek.com/user/balance',
+    headersTemplate: {
+      Accept: 'application/json',
+      Authorization: 'Bearer {{apiKey}}',
+    },
+    extractorTemplate: 'function (data) {\n  var infos = data.balance_infos\n  if (!infos || !infos.length) return null\n  return infos[0].total_balance\n}',
+  },
+  {
+    id: 'bigmodel',
+    name: '智谱 BigModel',
+    fields: [
+      { key: 'apiKey', label: 'JWT 访问令牌', placeholder: 'eyJhb...（控制台复制）' },
+      { key: 'organization', label: '组织 ID', placeholder: 'org-xxxx' },
+      { key: 'project', label: '项目 ID', placeholder: 'proj_xxxx' },
+    ],
+    method: 'GET',
+    urlTemplate: 'https://bigmodel.cn/api/biz/customer/accountSet',
+    headersTemplate: {
+      accept: 'application/json, text/plain, */*',
+      authorization: '{{apiKey}}',
+      'bigmodel-organization': '{{organization}}',
+      'bigmodel-project': '{{project}}',
+      'set-language': 'zh',
+      priority: 'u=1, i',
+    },
+    extractorTemplate: 'function (data) {\n  if (!data || !data.data) return null\n  var b = data.data.basicCustomerInfo\n  return b ? b.balance : null\n}',
+  },
 ]
 
 function isBuiltinId(id) {
