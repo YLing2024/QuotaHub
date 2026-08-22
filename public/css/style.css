@@ -296,7 +296,7 @@ a {
 }
 
 .modal__box--wide {
-  width: 640px;
+  width: 720px;
   max-height: calc(100vh - 64px);
   overflow-y: auto;
 }
@@ -435,6 +435,11 @@ a {
 .btn--ghost:hover {
   background: var(--black);
   color: var(--white);
+}
+
+.btn--ghost:focus-visible {
+  outline: 2px solid var(--red);
+  outline-offset: 1px;
 }
 
 .field--wide {
@@ -867,20 +872,34 @@ a.card__platform:hover {
   cursor: default;
 }
 
+/* ---------- 余额趋势图弹窗 ---------- */
+
 .chart-toolbar {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.chart-toolbar__select {
-  width: auto;
-  flex: 0 0 auto;
+/* 统计文字: 与工具栏对齐(右推) */
+#chart-stats {
+  margin-left: auto;
+  color: #333;
+  font-size: 12px;
+  letter-spacing: 1px;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  #chart-stats {
+    margin-left: 0;
+    width: 100%;
+    white-space: normal;
+  }
 }
 
 .chart-wrap {
   width: 100%;
-  height: 320px;
+  height: 340px;
   border: 1px solid var(--gray-light);
   background: var(--white);
 }
@@ -889,6 +908,25 @@ a.card__platform:hover {
   display: block;
   width: 100%;
   height: 100%;
+  /* 触屏手势: 放行竖向页面滚动, 阻止浏览器横滑手势抢占图表拖动 */
+  touch-action: pan-y;
+}
+
+/* 预览条: 主图下方全量时间缩略图 + 窗口选择(拖两端/内部平移) */
+.chart-preview-wrap {
+  margin-top: 12px;
+}
+
+#chart-preview {
+  display: block;
+  width: 100%;
+  height: 52px;
+  border: 1px solid var(--gray-light);
+  background: var(--white);
+  cursor: default;
+  user-select: none;
+  /* 触屏手势: 预览条为纯横向拖动, 放行竖向滚动、拦截横滑默认手势 */
+  touch-action: pan-y;
 }
 
 /* ---------- 操作日志 ---------- */

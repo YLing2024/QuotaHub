@@ -340,17 +340,13 @@
         <button type="button" class="modal__close" id="chart-close">×</button>
       </div>
       <div class="chart-toolbar">
-        <label class="field__label" for="chart-range">时间范围</label>
-        <select class="field__input chart-toolbar__select" id="chart-range">
-          <option value="all">全部</option>
-          <option value="24h">最近 24 小时</option>
-          <option value="7d">最近 7 天</option>
-          <option value="30d">最近 30 天</option>
-        </select>
         <span class="form__msg" id="chart-stats"></span>
       </div>
       <div class="chart-wrap">
         <canvas id="chart-canvas"></canvas>
+      </div>
+      <div class="chart-preview-wrap" title="拖动窗口两端或内部，选择主图时间范围">
+        <canvas id="chart-preview"></canvas>
       </div>
       <div class="modal__actions">
         <button type="button" class="btn btn--ghost" id="chart-cancel">关闭</button>
