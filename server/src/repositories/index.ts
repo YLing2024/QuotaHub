@@ -1,0 +1,5 @@
+export * as platformRepo from './platformRepo.js'
+export * as presetRepo from './presetRepo.js'
+export * as settingsRepo from './settingsRepo.js'
+export * as historyRepo from './historyRepo.js'
+export * as logRepo from './logRepo.js'
