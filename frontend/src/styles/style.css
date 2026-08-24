@@ -509,14 +509,32 @@ a {
   vertical-align: middle;
 }
 
-/* URL 等长英文串可任意断行, 避免撑爆表格 */
 .table td.table__url {
-  word-break: break-all;
-  overflow-wrap: anywhere;
-  white-space: normal;
-  max-width: 340px;
+  white-space: nowrap;
+  word-break: normal;
+  overflow-wrap: normal;
   font-family: Consolas, "SFMono-Regular", Menlo, monospace;
   font-size: 12px;
+}
+
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.table-scroll .table {
+  min-width: max-content;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.table-scroll .table th:last-child,
+.table-scroll .table td:last-child {
+  position: sticky;
+  right: 0;
+  background: var(--white);
+  z-index: 1;
+}
+.table-scroll .table thead th:last-child {
+  z-index: 2;
 }
 
 .table td:first-child {

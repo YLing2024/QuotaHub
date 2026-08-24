@@ -71,6 +71,13 @@ export default function TrendChartModal({ id, name, onClose }: Props) {
   const previewRef = useRef<HTMLCanvasElement>(null)
   const statsRef = useRef<HTMLSpanElement>(null)
 
+  // 弹窗打开期间锁定 body 滚动，关闭/卸载时恢复
+  useEffect(() => {
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prev }
+  }, [])
+
   useEffect(() => {
     const canvas = canvasRef.current!
     const preview = previewRef.current!
