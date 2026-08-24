@@ -129,6 +129,7 @@ export default function DashboardTab() {
       await loadDashboard()
     } catch (e) {
       setLastUpdateError(`刷新失败: ${(e as Error).message}`)
+    } finally {
       setCardRefreshing((prev) => {
         const next = new Set(prev)
         next.delete(id)
