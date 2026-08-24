@@ -646,83 +646,85 @@ export default function ConfigTab() {
           </div>
         </div>
 
-        <table className="table">
-          <thead>
-            <tr>
-              <th>平台</th>
-              <th>URL</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody>
-            {!platforms.length ? (
-              <tr className="table__empty">
-                <td colSpan={3}>尚未配置任何平台</td>
+        <div className="table-scroll">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>平台</th>
+                <th>URL</th>
+                <th>操作</th>
               </tr>
-            ) : (
-              platforms.map((p) => {
-                const rm = rowMsg[p.id]
-                return (
-                  <tr key={p.id}>
-                    <td>{p.name}</td>
-                    <td className="table__url" title={p.request?.url || ''}>
-                      {p.request?.url || '—'}
-                    </td>
-                    <td>
-                      <button
-                        type="button"
-                        className="table__action"
-                        title="上移"
-                        onClick={() => void movePlatform(p.id, -1)}
-                      >
-                        ↑
-                      </button>
-                      <button
-                        type="button"
-                        className="table__action"
-                        title="下移"
-                        onClick={() => void movePlatform(p.id, 1)}
-                      >
-                        ↓
-                      </button>
-                      <button type="button" className="table__action" onClick={() => startEdit(p.id)}>
-                        编辑
-                      </button>
-                      <button
-                        type="button"
-                        className="table__action"
-                        onClick={() =>
-                          setTransferReq({
-                            mode: 'export',
-                            title: `导出平台：${p.name}`,
-                            desc: '复制以下 JSON 即可分享或备份',
-                            text: JSON.stringify(p, null, 2),
-                          })
-                        }
-                      >
-                        导出
-                      </button>
-                      <button type="button" className="table__action" onClick={() => void testRow(p.id)}>
-                        测试连接
-                      </button>
-                      <button type="button" className="table__action" onClick={() => void fetchRow(p.id)}>
-                        获取余额
-                      </button>
-                      <button
-                        type="button"
-                        className="table__action table__action--danger"
-                        onClick={() => void removeRowPlatform(p.id, p.name)}
-                      >
-                        删除
-                      </button>
-                      <span className={`table__msg${rm?.error ? ' is-error' : ''}`}>{rm?.text}</span>
-                    </td>
-                  </tr>
-                )
-              })
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {!platforms.length ? (
+                <tr className="table__empty">
+                  <td colSpan={3}>尚未配置任何平台</td>
+                </tr>
+              ) : (
+                platforms.map((p) => {
+                  const rm = rowMsg[p.id]
+                  return (
+                    <tr key={p.id}>
+                      <td>{p.name}</td>
+                      <td className="table__url" title={p.request?.url || ''}>
+                        {p.request?.url || '—'}
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          className="table__action"
+                          title="上移"
+                          onClick={() => void movePlatform(p.id, -1)}
+                        >
+                          ↑
+                        </button>
+                        <button
+                          type="button"
+                          className="table__action"
+                          title="下移"
+                          onClick={() => void movePlatform(p.id, 1)}
+                        >
+                          ↓
+                        </button>
+                        <button type="button" className="table__action" onClick={() => startEdit(p.id)}>
+                          编辑
+                        </button>
+                        <button
+                          type="button"
+                          className="table__action"
+                          onClick={() =>
+                            setTransferReq({
+                              mode: 'export',
+                              title: `导出平台：${p.name}`,
+                              desc: '复制以下 JSON 即可分享或备份',
+                              text: JSON.stringify(p, null, 2),
+                            })
+                          }
+                        >
+                          导出
+                        </button>
+                        <button type="button" className="table__action" onClick={() => void testRow(p.id)}>
+                          测试连接
+                        </button>
+                        <button type="button" className="table__action" onClick={() => void fetchRow(p.id)}>
+                          获取余额
+                        </button>
+                        <button
+                          type="button"
+                          className="table__action table__action--danger"
+                          onClick={() => void removeRowPlatform(p.id, p.name)}
+                        >
+                          删除
+                        </button>
+                        <span className={`table__msg${rm?.error ? ' is-error' : ''}`}>{rm?.text}</span>
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       {/* ========== 弹窗 ========== */}
