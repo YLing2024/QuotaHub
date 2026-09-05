@@ -27,7 +27,29 @@ import {
 
 // 触摸拖动判定阈值(px): 位移未超过视为"查看信息"(十字线跟随), 超过转为平移
 const TOUCH_PAN_THRESHOLD = 6
-const FONT_STACK = '"Helvetica Neue", sans-serif'
+// 画布字体: 跟随 Swiss 设计系统(latin 子集自托管, CJK 回退系统栈)
+const FONT_STACK = '"Inter", -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Helvetica Neue", sans-serif'
+const MONO_STACK = '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace'
+
+// Swiss palette constants (light/dark 共用结构, 取值与 CSS 变量一致)
+// 读取时机: 每次渲染时基于主题取色, 保证深色模式图表同步
+function readThemeColor(darkKey: string, lightKey: string): string {
+  const dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+  return dark ? darkKey : lightKey
+}
+const LINE_COLOR = () => readThemeColor('#c77c1f', '#a05b0c')
+const ACCENT_FADE = () => readThemeColor('rgba(199, 124, 31, 0.14)', 'rgba(160, 91, 12, 0.1)')
+const AXIS_TICK = () => readThemeColor('#746e66', '#9b958d')
+const GRID_LINE = () => readThemeColor('rgba(239,234,227,0.16)', 'rgba(23,21,18,0.16)')
+const AXIS_BASE = () => readThemeColor('rgba(239,234,227,0.3)', 'rgba(23,21,18,0.3)')
+const TEXT_MUTED = () => readThemeColor('#a29b92', '#6f6a63')
+const TEXT_DIM = () => readThemeColor('#746e66', '#9b958d')
+const TEXT_FG = () => readThemeColor('#efeae3', '#171512')
+const SURFACE = () => readThemeColor('#191715', '#fbfaf8')
+const CROSSHAIR = () => readThemeColor('rgba(239,234,227,0.45)', 'rgba(23,21,18,0.35)')
+const OVERLAY_MASK = () => readThemeColor('rgba(239,234,227,0.25)', 'rgba(23,21,18,0.28)')
+const DIM_LINE = () => readThemeColor('rgba(174,166,155,0.55)', 'rgba(138,138,138,0.95)')
+const HANDLE = () => readThemeColor('#efeae3', '#171512')
 
 interface ChartView {
   pts: SamplePoint[]
@@ -165,7 +187,7 @@ export default function TrendChartModal({ id, name, onClose }: Props) {
       const vy = view.y(p.v)
 
       ctx.save()
-      ctx.strokeStyle = '#c9c9c9'
+      ctx.strokeStyle = CROSSHAIR()
       ctx.lineWidth = 1
       ctx.setLineDash([4, 4])
       ctx.beginPath()
@@ -174,8 +196,8 @@ export default function TrendChartModal({ id, name, onClose }: Props) {
       ctx.stroke()
       ctx.restore()
 
-      ctx.fillStyle = '#e4002b'
-      ctx.strokeStyle = '#ffffff'
+      ctx.fillStyle = LINE_COLOR()
+      ctx.strokeStyle = SURFACE()
       ctx.lineWidth = 3
       ctx.beginPath()
       ctx.arc(vx, vy, (view.dotR || 3) + 2, 0, Math.PI * 2)
@@ -202,18 +224,18 @@ export default function TrendChartModal({ id, name, onClose }: Props) {
         by = vy + 10
         if (by + bh > pad.t + h) by = Math.max(pad.t, pad.t + h - bh)
       }
-      ctx.fillStyle = '#ffffff'
-      ctx.strokeStyle = '#ffffff'
+      ctx.fillStyle = SURFACE()
+      ctx.strokeStyle = SURFACE()
       ctx.lineWidth = 2
       ctx.fillRect(bx, by, bw, bh)
       ctx.strokeRect(bx, by, bw, bh)
       ctx.textAlign = 'left'
       ctx.textBaseline = 'middle'
-      ctx.fillStyle = '#111111'
+      ctx.fillStyle = TEXT_FG()
       ctx.font = `bold 12px ${FONT_STACK}`
       ctx.fillText(valText, bx + 8, by + 12)
-      ctx.fillStyle = '#888888'
-      ctx.font = `11px ${FONT_STACK}`
+      ctx.fillStyle = TEXT_MUTED()
+      ctx.font = `11px ${MONO_STACK}`
       ctx.fillText(timeText, bx + 8, by + 26)
     }
 
@@ -238,7 +260,7 @@ export default function TrendChartModal({ id, name, onClose }: Props) {
       // 空态
       if (!pts.length) {
         view = null
-        ctx.fillStyle = '#888'
+        ctx.fillStyle = TEXT_DIM()
         ctx.font = `13px ${FONT_STACK}`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
@@ -291,23 +313,23 @@ export default function TrendChartModal({ id, name, onClose }: Props) {
       for (let i = 0; i <= tickCount; i++) {
         const tv = domain.max - ((domain.max - domain.min) / tickCount) * i
         const ty = Math.round(pad.t + (h / tickCount) * i) + 0.5
-        ctx.strokeStyle = '#e8e8e8'
+        ctx.strokeStyle = GRID_LINE()
         ctx.lineWidth = 1
         ctx.beginPath()
         ctx.moveTo(pad.l, ty)
         ctx.lineTo(pad.l + w, ty)
         ctx.stroke()
-        ctx.strokeStyle = '#b3b3b3'
+        ctx.strokeStyle = AXIS_TICK()
         ctx.beginPath()
         ctx.moveTo(pad.l - 6, ty)
         ctx.lineTo(pad.l, ty)
         ctx.stroke()
-        ctx.fillStyle = '#888'
+        ctx.fillStyle = TEXT_MUTED()
         ctx.fillText(fmtTick(tv), pad.l - 10, ty)
       }
 
       // 坐标轴基线(左/下细灰线)
-      ctx.strokeStyle = '#d9d9d9'
+      ctx.strokeStyle = AXIS_BASE()
       ctx.beginPath()
       ctx.moveTo(Math.round(pad.l) + 0.5, pad.t)
       ctx.lineTo(Math.round(pad.l) + 0.5, pad.t + h)
@@ -317,8 +339,8 @@ export default function TrendChartModal({ id, name, onClose }: Props) {
       // X 轴时间刻度: 按最小像素间距自适应刻度数, 标签不重叠; 两端锚定防裁切
       let xTickCount = Math.min(6, times.length)
       while (xTickCount > 2 && w / (xTickCount - 1) < 90) xTickCount--
-      ctx.font = `12px ${FONT_STACK}`
-      ctx.fillStyle = '#888'
+      ctx.font = `12px ${MONO_STACK}`
+      ctx.fillStyle = TEXT_MUTED()
       ctx.textBaseline = 'top'
       for (let i = 0; i < xTickCount; i++) {
         const idx = xTickCount === 1 ? 0 : Math.round((i / (xTickCount - 1)) * (times.length - 1))
@@ -329,7 +351,7 @@ export default function TrendChartModal({ id, name, onClose }: Props) {
           hour: '2-digit',
           minute: '2-digit',
         })
-        ctx.strokeStyle = '#b3b3b3'
+        ctx.strokeStyle = AXIS_TICK()
         ctx.beginPath()
         ctx.moveTo(Math.round(tx) + 0.5, pad.t + h)
         ctx.lineTo(Math.round(tx) + 0.5, pad.t + h + 4)
@@ -339,10 +361,10 @@ export default function TrendChartModal({ id, name, onClose }: Props) {
         ctx.fillText(label, lx, pad.t + h + 10)
       }
 
-      // 面积填充(先画, 克制的淡红渐变)
+      // 面积填充(先画, 克制的琥珀渐变)
       const gradient = ctx.createLinearGradient(0, pad.t, 0, pad.t + h)
-      gradient.addColorStop(0, 'rgba(228, 0, 43, 0.11)')
-      gradient.addColorStop(1, 'rgba(228, 0, 43, 0)')
+      gradient.addColorStop(0, ACCENT_FADE())
+      gradient.addColorStop(1, 'rgba(160, 91, 12, 0)')
       ctx.beginPath()
       pts.forEach((p, i) => {
         const px = x(i)
@@ -357,7 +379,7 @@ export default function TrendChartModal({ id, name, onClose }: Props) {
       ctx.fill()
 
       // 折线
-      ctx.strokeStyle = '#e4002b'
+      ctx.strokeStyle = LINE_COLOR()
       ctx.lineWidth = 2
       ctx.lineJoin = 'round'
       ctx.lineCap = 'round'
@@ -370,17 +392,17 @@ export default function TrendChartModal({ id, name, onClose }: Props) {
       })
       ctx.stroke()
 
-      // 数据点: 按相邻点 X 像素间距 dx 连续自适应——越密集点半径与白描边越向 0 收敛,
-      // dx <= DENSE_DX 只画折线不画点, 避免密集白描边盖住红色折线
+      // 数据点: 按相邻点 X 像素间距 dx 连续自适应——越密集点半径与描边越向 0 收敛,
+      // dx <= DENSE_DX 只画折线不画点, 避免密集描边盖住琥珀折线
       const dx = pts.length > 1 ? w / (pts.length - 1) : Infinity
       const t = densityT(dx)
       const dotR = 5 * t
       const strokeW = 2 * t
       view.dotR = dotR
       if (dotR >= 1) {
-        ctx.fillStyle = '#e4002b'
+        ctx.fillStyle = LINE_COLOR()
         if (strokeW > 0) {
-          ctx.strokeStyle = '#ffffff'
+          ctx.strokeStyle = SURFACE()
           ctx.lineWidth = strokeW
         }
         pts.forEach((p, i) => {
@@ -391,7 +413,7 @@ export default function TrendChartModal({ id, name, onClose }: Props) {
         })
       }
 
-      // 首/末值标注: 白底小块 + 白描边外扩, 数字加粗清晰
+      // 首/末值标注: surface 底小块 + 同色描边外扩, 数字加粗清晰
       const labelAt = (idx: number, align: 'left' | 'right') => {
         const p = pts[idx]
         const vx = x(idx)
@@ -405,12 +427,12 @@ export default function TrendChartModal({ id, name, onClose }: Props) {
         bx = Math.max(pad.l, Math.min(bx, pad.l + w - bw))
         const above = vy - bh - 10 >= pad.t
         const by = above ? vy - bh - 10 : vy + 8
-        ctx.fillStyle = '#ffffff'
-        ctx.strokeStyle = '#ffffff'
+        ctx.fillStyle = SURFACE()
+        ctx.strokeStyle = SURFACE()
         ctx.lineWidth = 2
         ctx.fillRect(bx, by, bw, bh)
         ctx.strokeRect(bx, by, bw, bh)
-        ctx.fillStyle = '#111'
+        ctx.fillStyle = TEXT_FG()
         ctx.textAlign = 'left'
         ctx.textBaseline = 'middle'
         ctx.fillText(text, bx + 6, by + bh / 2 + 0.5)
@@ -446,7 +468,7 @@ export default function TrendChartModal({ id, name, onClose }: Props) {
 
       const geo = buildPreviewGeo(points, cssW)
       if (!geo) {
-        ctx.fillStyle = '#888'
+        ctx.fillStyle = TEXT_DIM()
         ctx.font = `12px ${FONT_STACK}`
         ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
@@ -483,10 +505,10 @@ export default function TrendChartModal({ id, name, onClose }: Props) {
       const xs = geo.xOfTs(winStart)
       const xe = geo.xOfTs(winEnd)
 
-      // 未选中区域灰化: 半透明灰遮罩 + 该段折线重描为灰; 选中段保持鲜红
+      // 未选中区域灰化: 半透明遮罩 + 该段折线重描为灰; 选中段保持琥珀
       const hasLeft = xs > 0
       const hasRight = xe < cssW
-      ctx.fillStyle = 'rgba(17, 17, 17, 0.28)'
+      ctx.fillStyle = OVERLAY_MASK()
       if (hasLeft) ctx.fillRect(0, 0, xs, cssH)
       if (hasRight) ctx.fillRect(xe, 0, cssW - xe, cssH)
       if (hasLeft || hasRight) {
@@ -495,28 +517,28 @@ export default function TrendChartModal({ id, name, onClose }: Props) {
         if (hasLeft) ctx.rect(0, 0, xs, cssH)
         if (hasRight) ctx.rect(xe, 0, cssW - xe, cssH)
         ctx.clip()
-        strokeAll('rgba(138, 138, 138, 0.95)', 1.5)
+        strokeAll(DIM_LINE(), 1.5)
         ctx.restore()
       }
       ctx.save()
       ctx.beginPath()
       ctx.rect(xs, 0, Math.max(0, xe - xs), cssH)
       ctx.clip()
-      strokeAll('#e4002b', 1.5)
+      strokeAll(LINE_COLOR(), 1.5)
       ctx.restore()
 
-      // 选中窗口高亮: 细黑描边框
-      ctx.strokeStyle = '#111111'
+      // 选中窗口高亮: 细描边框
+      ctx.strokeStyle = HANDLE()
       ctx.lineWidth = 1
       ctx.strokeRect(xs + 0.5, 0.5, Math.max(1, xe - xs - 1), cssH - 1)
 
-      // 左右拖动手柄条(5px), hover 变红提示可拖
+      // 左右拖动手柄条(5px), hover 变琥珀提示可拖
       const hw = 5
       ctx.fillStyle =
-        previewHover === 'l' || previewDrag?.mode === 'l' ? '#e4002b' : '#111111'
+        previewHover === 'l' || previewDrag?.mode === 'l' ? LINE_COLOR() : HANDLE()
       ctx.fillRect(xs, 0, hw, cssH)
       ctx.fillStyle =
-        previewHover === 'r' || previewDrag?.mode === 'r' ? '#e4002b' : '#111111'
+        previewHover === 'r' || previewDrag?.mode === 'r' ? LINE_COLOR() : HANDLE()
       ctx.fillRect(xe - hw, 0, hw, cssH)
 
       // 光标跟随命中区域
