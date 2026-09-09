@@ -54,7 +54,7 @@ describe('monitorService 采集流程 (fetcher -> history_samples)', () => {
     const dash = monitorService.buildDashboard()
     const card = dash.platforms.find((p) => p.id === 'mp1')!
     expect(card.value).toBeCloseTo(42.5)
-    expect(card.text).toBeNull()
+    expect(card.format).toBeNull()
     expect(card.error).toBeNull()
     expect(card.fetchedAt).toBeTruthy()
     expect(historyRepo.get('mp1').length).toBe(1)
@@ -69,13 +69,13 @@ describe('monitorService 采集流程 (fetcher -> history_samples)', () => {
     expect(outcome.error).toContain('处理函数必须返回数字')
 
     const card = monitorService.buildDashboard().platforms.find((c) => c.id === 'mpstr')!
-    expect(card.text).toBeNull()
+    expect(card.format).toBeNull()
     expect(card.error).toContain('处理函数必须返回数字')
     // 字符串不入历史
     expect(historyRepo.get('mpstr')).toEqual([])
   })
 
-  it('collect 数字 + 配置 format -> 面板 text 为 format 渲染结果, value 为数值', async () => {
+  it('collect 数字 + 配置 format -> 面板 format 原样透传源码, value 为数值(不执行 format)', async () => {
     addPlatform(
       'mpfmt',
       '带格式平台',
@@ -90,14 +90,16 @@ describe('monitorService 采集流程 (fetcher -> history_samples)', () => {
 
     const card = monitorService.buildDashboard().platforms.find((c) => c.id === 'mpfmt')!
     expect(card.value).toBeCloseTo(28.12)
-    expect(card.text).toBe('28.12元')
+    expect(card.format).toBe('function (v) { return v.toFixed(2) + "元" }')
     expect(card.error).toBeNull()
     expect(historyRepo.get('mpfmt')).toEqual([expect.objectContaining({ v: 28.12 })])
   })
 
-  it('format 抛错/返回非字符串 -> 该卡 text=null(回退 fmt), 不炸面板', async () => {
-    addPlatform('mpbadfmt', '坏格式平台', undefined, 'function (v) { throw new Error("x") }')
-    addPlatform('mpnumfmt', '非字符串格式', undefined, 'function (v) { return v }')
+  it('format 源码原样透传(抛错/非字符串等执行问题交给前端兜底), 不炸面板', async () => {
+    const badFmt = 'function (v) { throw new Error("x") }'
+    const numFmt = 'function (v) { return v }'
+    addPlatform('mpbadfmt', '坏格式平台', undefined, badFmt)
+    addPlatform('mpnumfmt', '非字符串格式', undefined, numFmt)
     stubFetch(async () => new Response(JSON.stringify({ balance: 7 }), { status: 200 }))
     for (const id of ['mpbadfmt', 'mpnumfmt']) {
       const p = platformRepo.getAll().find((x) => x.id === id)!
@@ -107,13 +109,13 @@ describe('monitorService 采集流程 (fetcher -> history_samples)', () => {
     const dash = monitorService.buildDashboard()
     const bad = dash.platforms.find((c) => c.id === 'mpbadfmt')!
     expect(bad.value).toBeCloseTo(7)
-    expect(bad.text).toBeNull()
+    expect(bad.format).toBe(badFmt)
     const num = dash.platforms.find((c) => c.id === 'mpnumfmt')!
     expect(num.value).toBeCloseTo(7)
-    expect(num.text).toBeNull()
+    expect(num.format).toBe(numFmt)
   })
 
-  it('collect 无 format 平台 -> text=null(前端 fmt 兜底)', async () => {
+  it('collect 无 format 平台 -> format=null(前端 fmt 兜底)', async () => {
     addPlatform('mpnofmt', '无格式平台')
     const p = platformRepo.getAll().find((x) => x.id === 'mpnofmt')!
     stubFetch(async () => new Response(JSON.stringify({ balance: 42.5 }), { status: 200 }))
@@ -121,7 +123,7 @@ describe('monitorService 采集流程 (fetcher -> history_samples)', () => {
     expect(outcome.ok).toBe(true)
     const card = monitorService.buildDashboard().platforms.find((c) => c.id === 'mpnofmt')!
     expect(card.value).toBeCloseTo(42.5)
-    expect(card.text).toBeNull()
+    expect(card.format).toBeNull()
   })
 
   it('collect 失败 -> 面板显示错误态; 恢复成功后回到数值', async () => {

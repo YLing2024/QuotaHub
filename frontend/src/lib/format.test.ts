@@ -7,6 +7,7 @@ import {
   formatValue,
   renderTemplate,
   resolveHandler,
+  runFormatOnClient,
 } from './format'
 import type { Platform } from '@/types'
 
@@ -76,6 +77,37 @@ describe('formatValue', () => {
   it('数值与字符串', () => {
     expect(formatValue(12.5)).toBe('12.5')
     expect(formatValue('ok')).toBe('ok')
+  })
+})
+
+describe('runFormatOnClient (format 源码 -> 展示文本, 前端渲染)', () => {
+  it('合法函数 + 拼接单位 -> 正确文本', () => {
+    expect(runFormatOnClient('function (v) { return v.toFixed(2) + "元" }', 28.12)).toBe('28.12元')
+    expect(runFormatOnClient('function (v) { return "¥" + v.toFixed(2) }', 19.07)).toBe('¥19.07')
+  })
+  it('箭头函数源码同样支持', () => {
+    expect(runFormatOnClient('(v) => v.toFixed(4) + "G"', 0.5849)).toBe('0.5849G')
+  })
+  it('语法错误源码 -> null', () => {
+    expect(runFormatOnClient('function (v) { return ))) }', 1)).toBeNull()
+  })
+  it('执行抛错 -> null', () => {
+    expect(runFormatOnClient('function (v) { throw new Error("x") }', 1)).toBeNull()
+  })
+  it('返回非字符串(数字/对象)-> null', () => {
+    expect(runFormatOnClient('function (v) { return v }', 5)).toBeNull()
+    expect(runFormatOnClient('function (v) { return 123 }', 5)).toBeNull()
+    expect(runFormatOnClient('function (v) { return ({ a: 1 }) }', 5)).toBeNull()
+  })
+  it('空串/空源码 -> null', () => {
+    expect(runFormatOnClient('', 1)).toBeNull()
+    expect(runFormatOnClient('   ', 1)).toBeNull()
+  })
+  it('缓存命中路径: 同一 src 二次调用复用编译结果', () => {
+    const src = 'function (v) { return v.toFixed(1) + "%" }'
+    expect(runFormatOnClient(src, 20.6)).toBe('20.6%')
+    expect(runFormatOnClient(src, 33.3)).toBe('33.3%')
+    expect(runFormatOnClient(src, 20.6)).toBe('20.6%')
   })
 })
 

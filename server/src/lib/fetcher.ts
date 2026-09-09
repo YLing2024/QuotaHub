@@ -241,25 +241,6 @@ export function runParse(raw: unknown, src: unknown): unknown {
   }
 }
 
-// 显示格式函数(format): 平台配置的展示 JS, 入参 v = handler 返回的数值, 返回最终展示字符串。
-// 与 runParse 同款沙箱(vm realm 隔离, 无宿主对象注入, 有超时); 抛错/超时由调用方兜底为 text=null。
-export function runFormat(src: string, v: number): unknown {
-  const code = String(src ?? '').trim()
-  if (!code) throw new Error('未配置显示格式函数')
-  const sandbox = Object.create(null) as Record<string, unknown>
-  vm.createContext(sandbox)
-  try {
-    return vm.runInNewContext(`(${code})(${JSON.stringify(v)})`, sandbox, {
-      timeout: EXTRACT_TIMEOUT_MS,
-    })
-  } catch (e) {
-    if ((e as NodeJS.ErrnoException).code === 'ERR_SCRIPT_EXECUTION_TIMEOUT') {
-      throw new Error(`显示格式函数执行超时 (${EXTRACT_TIMEOUT_MS}ms)`, { cause: e })
-    }
-    throw new Error(`显示格式函数执行失败: ${(e as Error).message}`, { cause: e })
-  }
-}
-
 export function runExtractor(src: unknown, data: unknown): unknown {
   const code = String(src ?? '').trim()
   if (!code) throw new Error('未配置提取函数')

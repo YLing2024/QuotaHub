@@ -31,7 +31,7 @@ export interface Platform {
   handler: string
   extractor?: string
   parse?: string
-  // 显示格式函数(JS 函数源码字符串): 后端沙箱渲染, 入参 = 数值, 返回展示串; 空 -> 前端 fmt 兜底
+  // 显示格式函数(JS 函数源码字符串): 由主页渲染卡片时执行(value -> 展示文本); 空/执行失败 -> fmt 兜底
   format?: string
   response?: LegacyResponse
   // 已弃用: 仅导入兼容保留, 不渲染/不导出
@@ -78,13 +78,14 @@ export interface LogEntry {
   meta?: Record<string, unknown>
 }
 
-// 面板卡片(与后端一致: value=最新数值, text=format 渲染结果; 无 format/渲染失败 -> null)
+// 面板卡片(与后端一致: value=最新数值, format=展示格式函数源码原样透传; 后端不执行,
+// 渲染时由 runFormatOnClient(format)(value) 得到文本; 无 format/执行失败 -> null 回退 fmt)
 export interface BalanceCard {
   id: string
   name: string
   url?: string
   value: number | null
-  text: string | null
+  format: string | null
   error: string | null
   fetchedAt: string | null
 }

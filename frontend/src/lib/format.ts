@@ -11,6 +11,31 @@ export const fmt = (v: unknown): string => {
   return n % 1 === 0 ? n.toString() : n.toFixed(2)
 }
 
+// format 源码 -> 函数, 带编译缓存(同一平台源码复用编译结果; 上限 50 防极端内存)
+const formatFnCache = new Map<string, (v: number) => unknown>()
+const FORMAT_FN_CACHE_LIMIT = 50
+
+export function runFormatOnClient(src: string, v: number): string | null {
+  let fn = formatFnCache.get(src)
+  if (!fn) {
+    try {
+      fn = new Function(`return (${src})`)() as (v: number) => unknown
+      if (formatFnCache.size >= FORMAT_FN_CACHE_LIMIT) {
+        formatFnCache.delete(formatFnCache.keys().next().value as string)
+      }
+      formatFnCache.set(src, fn)
+    } catch {
+      return null
+    }
+  }
+  try {
+    const t = fn(v)
+    return typeof t === 'string' ? t : null
+  } catch {
+    return null
+  }
+}
+
 // 数据精度自适应格式化(折线图 hover/涨跌统计用): 整数原样; 非整数最多保留 6 位小数并去尾零。
 // 0.5849 -> '0.5849'; 28.12 -> '28.12'; 1.5 -> '1.5'; 12 -> '12'; 12.3456789 -> '12.345679'; 0.1+0.2 -> '0.3'
 export const fmtAuto = (v: number): string => {

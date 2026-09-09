@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { BalanceCard } from '@/types'
-import { fmt } from '@/lib/format'
+import { fmt, runFormatOnClient } from '@/lib/format'
 import { useStore } from '@/store/useStore'
 import { fetchPlatformBalance, refreshAllPlatforms, updateSettings } from '@/api/endpoints'
 import TrendChartModal from '@/components/TrendChart/TrendChartModal'
@@ -25,8 +25,9 @@ function BalanceCardView({
   ) : (
     <span className="card__platform">{p.name}</span>
   )
-  const isEmpty = p.value == null && p.text == null
-  const balanceText = p.text ?? (p.value != null ? fmt(p.value) : '—')
+  const text = p.value != null && p.format ? runFormatOnClient(p.format, p.value) : null
+  const isEmpty = p.value == null && text == null
+  const balanceText = text ?? (p.value != null ? fmt(p.value) : '—')
   return (
     <article
       className={`card${isEmpty ? ' card--empty' : ''}${p.error ? ' card--error' : ''}`}
