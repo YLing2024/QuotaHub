@@ -119,3 +119,52 @@ describe('transferService.importConfig 三种格式识别', () => {
     expect(presetRepo.getAll().some((p) => p.name === '好预设')).toBe(true)
   })
 })
+
+describe('导出不再带 prefix/suffix; 导入兼容旧 display', () => {
+  it('exportConfig 剔除顶层 display 与 response.prefix/suffix', () => {
+    platformRepo.saveAll([
+      {
+        id: 'exp-1',
+        name: '导出平台',
+        request: { method: 'GET', url: 'https://x.example/api', headers: {} },
+        handler: 'function (raw) { return JSON.parse(raw).b }',
+        display: { prefix: '¥', suffix: '元' },
+        response: { path: 'data.b', prefix: '$', suffix: 'USD' },
+        createdAt: new Date().toISOString(),
+      },
+    ])
+    const payload = transferService.exportConfig()
+    const p = payload.platforms.find((x) => x.id === 'exp-1')!
+    expect(p).not.toHaveProperty('display')
+    expect(p.response).toEqual({ path: 'data.b' })
+    // presets 不受影响
+    expect(Array.isArray(payload.presets)).toBe(true)
+  })
+
+  it('importConfig 接受旧导出(含 display / response.prefix/suffix), 不报错且字段保留在存储中', () => {
+    const r = transferService.importConfig({
+      platforms: [
+        {
+          id: 'legacy-imp',
+          name: '旧导出平台',
+          request: { method: 'GET', url: 'https://x.example/api', headers: {} },
+          handler: 'function (raw) { return JSON.parse(raw).b }',
+          display: { prefix: '¥', suffix: '元' },
+          response: { path: 'data.b', prefix: '$', suffix: 'USD', divider: 2 },
+        },
+      ],
+    })
+    expect(r.ok).toBe(true)
+    expect(r.errors).toEqual([])
+    const stored = platformRepo.getAll().find((p) => p.id === 'legacy-imp')
+    expect(stored).toBeTruthy()
+    // legacy 字段保留在存储中(导入兼容, 不渲染/不再被导出)
+    expect(stored?.display).toEqual({ prefix: '¥', suffix: '元' })
+    expect(stored?.response).toEqual({ path: 'data.b', prefix: '$', suffix: 'USD', divider: 2 })
+    // 而再次导出时不再包含它们
+    const re = transferService.exportConfig()
+    const p = re.platforms.find((x) => x.id === 'legacy-imp')!
+    expect(p).not.toHaveProperty('display')
+    expect(p.response).toEqual({ path: 'data.b', divider: 2 })
+  })
+})

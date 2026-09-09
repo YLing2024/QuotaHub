@@ -2,6 +2,8 @@
 
 export type HttpMethod = 'GET' | 'POST'
 
+// 已弃用: prefix/suffix 拼接机制已废除(handler 直接返回字符串展示)。
+// 类型保留仅为旧导出文件(含 display / response.prefix/suffix)导入兼容。
 export interface DisplayConfig {
   prefix: string
   suffix: string
@@ -14,7 +16,7 @@ export interface PlatformRequest {
   body?: unknown
 }
 
-// 旧数据兼容字段: response.prefix/suffix -> display 迁移用
+// 已弃用: prefix/suffix 不再参与展示, 保留仅为导入兼容
 export interface LegacyResponse {
   path?: string
   divider?: number
@@ -30,7 +32,8 @@ export interface Platform {
   extractor?: string
   parse?: string
   response?: LegacyResponse
-  display: DisplayConfig
+  // 已弃用: 仅导入兼容保留, 不渲染/不导出
+  display?: DisplayConfig
   url?: string
   createdAt: string
 }
@@ -61,6 +64,7 @@ export interface Settings {
 export interface SamplePoint {
   v: number
   t: string
+  text?: string | null
 }
 
 export interface LogEntry {
@@ -73,12 +77,13 @@ export interface LogEntry {
   meta?: Record<string, unknown>
 }
 
+// 面板卡片(与后端一致: value=可绘图最新数值, text=最新展示文本。字符串源平台两者可并存, 纯文本均 null)
 export interface BalanceCard {
   id: string
   name: string
   url?: string
-  display: DisplayConfig
-  balance: number | null
+  value: number | null
+  text: string | null
   error: string | null
   fetchedAt: string | null
 }
@@ -111,11 +116,11 @@ export interface ImportResult {
 
 export interface RefreshResult {
   ok: boolean
-  results: Array<{ id: string; ok: true; value: number } | { id: string; ok: false; error: string }>
+  results: Array<{ id: string; ok: true; value: number | string } | { id: string; ok: false; error: string }>
 }
 
 export interface TestResult {
   ok: boolean
-  value?: number
+  value?: number | string
   error?: string
 }

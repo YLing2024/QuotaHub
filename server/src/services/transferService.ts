@@ -14,13 +14,26 @@ export interface ExportPayload {
   presets: Preset[]
 }
 
-// 导出完整配置: 全部平台 + 用户预设(不含抓取结果余额)
+// 导出时剔除已弃用的展示字段: 顶层 display 与 response 内 prefix/suffix 不再出现在导出文件
+function stripDisplayFields(p: Platform): Platform {
+  const out = { ...p } as Platform
+  delete out.display
+  if (out.response && typeof out.response === 'object') {
+    const res = { ...(out.response as Record<string, unknown>) }
+    delete res.prefix
+    delete res.suffix
+    out.response = Object.keys(res).length ? res : undefined
+  }
+  return out
+}
+
+// 导出完整配置: 全部平台 + 用户预设(不含抓取结果余额, 亦不含 prefix/suffix)
 function exportConfig(): ExportPayload {
   const payload: ExportPayload = {
     type: 'quotahub-config',
     version: 1,
     exportedAt: new Date().toISOString(),
-    platforms: platformRepo.getAll(),
+    platforms: platformRepo.getAll().map(stripDisplayFields),
     presets: presetRepo.getAll(),
   }
   logService.log(
@@ -70,7 +83,6 @@ function isPresetLike(obj: unknown): boolean {
 function sanitizePlatform(raw: unknown, fallbackId: string): Platform {
   const p = (raw ?? {}) as Record<string, unknown>
   const req = (p.request ?? {}) as Record<string, unknown>
-  const display = (p.display ?? {}) as Record<string, unknown>
   return {
     id: typeof p.id === 'string' && p.id ? p.id : fallbackId,
     name: String(p.name || '未命名平台').trim(),
@@ -87,14 +99,11 @@ function sanitizePlatform(raw: unknown, fallbackId: string): Platform {
     extractor: typeof p.extractor === 'string' ? p.extractor : '',
     parse: typeof p.parse === 'string' ? p.parse : '',
     ...(p.response && typeof p.response === 'object' ? { response: p.response } : {}),
-    display: {
-      prefix: String(display.prefix || '')
-        .trim()
-        .slice(0, 20),
-      suffix: String(display.suffix || '')
-        .trim()
-        .slice(0, 20),
-    },
+    // 导入兼容: 旧导出文件的 display(含 response.prefix/suffix) 原样接受、写入存储(legacy 保留,
+    // 不渲染、不再被导出); 缺失时不生成空 display
+    ...(p.display && typeof p.display === 'object' && !Array.isArray(p.display)
+      ? { display: p.display }
+      : {}),
     createdAt:
       typeof p.createdAt === 'string' && p.createdAt ? p.createdAt : new Date().toISOString(),
   } as Platform

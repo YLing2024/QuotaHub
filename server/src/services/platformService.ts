@@ -1,6 +1,6 @@
 import crypto from 'node:crypto'
 import { platformRepo } from '../repositories/index.js'
-import type { DisplayConfig, Platform, PlatformRequest, PublicPlatform } from '../types.js'
+import type { Platform, PlatformRequest, PublicPlatform } from '../types.js'
 
 // 平台配置业务逻辑 (等价迁移自 src/routes/platforms.js 的纯数据部分)
 
@@ -12,31 +12,20 @@ export class HttpError extends Error {
   }
 }
 
-// 旧数据迁移: response.prefix/suffix -> display
+// 对外输出: 剔除已弃用的 display; response 内剔除 prefix/suffix(legacy 仅存库, 不渲染不导出)
 export function toPublic(p: Platform): PublicPlatform {
-  const out = { ...p } as PublicPlatform & { response?: unknown }
-  out.display =
-    out.display ||
-    ({
-      prefix: (p.response && p.response.prefix) || '',
-      suffix: (p.response && p.response.suffix) || '',
-    } satisfies DisplayConfig)
-  return out
-}
-
-function pickDisplay(body: Record<string, unknown>): DisplayConfig {
-  const src = ((body && body.display) ?? {}) as Record<string, unknown>
-  return {
-    prefix: String(src.prefix ?? '')
-      .trim()
-      .slice(0, 20),
-    suffix: String(src.suffix ?? '')
-      .trim()
-      .slice(0, 20),
+  const out = { ...p } as Platform
+  delete out.display
+  if (out.response && typeof out.response === 'object') {
+    const res = { ...(out.response as Record<string, unknown>) }
+    delete res.prefix
+    delete res.suffix
+    out.response = Object.keys(res).length ? res : undefined
   }
+  return out as PublicPlatform
 }
 
-// 部分更新: 只覆盖请求中出现的字段
+// 部分更新: 只覆盖请求中出现的字段 (display 已弃用, 忽略 body.display, 不动已存 legacy)
 function pickConfig(body: Record<string, unknown>): Partial<Platform> {
   const cfg: Record<string, unknown> = {}
   if (body.name !== undefined) cfg.name = String(body.name).trim()
@@ -50,7 +39,6 @@ function pickConfig(body: Record<string, unknown>): Partial<Platform> {
     if (body.extractor !== undefined) cfg.extractor = body.extractor
     if (body.parse !== undefined) cfg.parse = body.parse
   }
-  if (body.display !== undefined) cfg.display = pickDisplay(body)
   if (body.url !== undefined) cfg.url = String(body.url).trim().slice(0, 500)
   return cfg
 }
@@ -68,7 +56,6 @@ export function normalizePlatform(body: Record<string, unknown>): Platform {
     handler: (body.handler as string) || '',
     extractor: (body.extractor as string) || '',
     parse: (body.parse as string) || '',
-    display: pickDisplay(body),
     url: String(body.url ?? '')
       .trim()
       .slice(0, 500),
