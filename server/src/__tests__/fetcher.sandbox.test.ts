@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 // 沙箱与 SSRF 校验测试(不发起网络请求; URL 校验先于 fetch)
-const { runParse, runExtractor, evalJsResponse, resolvePath, fetchBalance, EXTRACT_TIMEOUT_MS } =
+const { runParse, runFormat, runExtractor, evalJsResponse, resolvePath, fetchBalance, EXTRACT_TIMEOUT_MS } =
   await import('../lib/fetcher.js')
 
 describe('fetcher.runParse 单函数模型(安全 eval)', () => {
@@ -22,6 +22,35 @@ describe('fetcher.runParse 单函数模型(安全 eval)', () => {
   it('死循环 -> 脚本超时', () => {
     expect(() => runParse('x', 'function (raw) { for(;;){} }')).toThrow(
       new RegExp(`解析函数执行超时 \\(${EXTRACT_TIMEOUT_MS}ms\\)`),
+    )
+  }, 10_000)
+})
+
+describe('fetcher.runFormat 显示格式函数 (vm 隔离沙箱)', () => {
+  it('数字 + 单位 -> 渲染展示串', () => {
+    expect(runFormat('function (v) { return v.toFixed(2) + "元" }', 28.12)).toBe('28.12元')
+    expect(runFormat('function (v) { return "¥" + v.toFixed(2) + "元" }', 19.07)).toBe('¥19.07元')
+  })
+
+  it('整数不带小数位', () => {
+    expect(runFormat('function (v) { var s = v % 1 === 0 ? String(v) : v.toFixed(2); return s + "%" }', 20.6)).toBe('20.60%')
+    expect(runFormat('function (v) { return v.toFixed(4) + "G" }', 0.5849)).toBe('0.5849G')
+  })
+
+  it('非字符串返回原样透传(调用方决定是否展示)', () => {
+    expect(runFormat('function (v) { return v }', 5)).toBe(5)
+    expect(runFormat('function (v) { return 123 }', 5)).toBe(123)
+  })
+
+  it('语法错误 / 运行抛错 / 未配置 -> 抛错(调用方兜底为 text=null)', () => {
+    expect(() => runFormat('function (v) { return ))) }', 1)).toThrow(/显示格式函数执行失败/)
+    expect(() => runFormat('function (v) { throw new Error("x") }', 1)).toThrow(/显示格式函数执行失败/)
+    expect(() => runFormat('', 1)).toThrow('未配置显示格式函数')
+  })
+
+  it('死循环 -> 脚本超时', () => {
+    expect(() => runFormat('function (v) { for(;;){} }', 1)).toThrow(
+      new RegExp(`显示格式函数执行超时 \\(${EXTRACT_TIMEOUT_MS}ms\\)`),
     )
   }, 10_000)
 })

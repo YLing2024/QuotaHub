@@ -127,7 +127,15 @@ export function yDomain(values: number[]): { min: number; max: number } {
   return { min: min - padScale, max: max + padScale }
 }
 
-// Y 轴刻度值格式统一: 按刻度步长取小数位
+// Y 轴刻度值格式统一: 按刻度步长取小数位, 支持到 6 位(赔钱机场 4 位小数等小步长数据)
+// step 可能为 0(domain 单值域展开异常/极小域)或 NaN, 兜底返回 0
 export function tickDecimals(step: number): number {
-  return step >= 1 ? 0 : step >= 0.1 ? 1 : 2
+  if (!(step > 0)) return 0
+  if (step >= 1) return 0
+  if (step >= 0.1) return 1
+  if (step >= 0.01) return 2
+  if (step >= 0.001) return 3
+  if (step >= 0.0001) return 4
+  if (step >= 0.00001) return 5
+  return 6
 }

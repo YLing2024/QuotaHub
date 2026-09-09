@@ -167,4 +167,42 @@ describe('导出不再带 prefix/suffix; 导入兼容旧 display', () => {
     expect(p).not.toHaveProperty('display')
     expect(p.response).toEqual({ path: 'data.b', divider: 2 })
   })
+
+  it('format 字段随导出/导入正常往返(display 剔除约定不变)', () => {
+    // 带 format 的平台导出
+    platformRepo.saveAll([
+      {
+        id: 'exp-fmt',
+        name: '格式平台',
+        request: { method: 'GET', url: 'https://x.example/api', headers: {} },
+        handler: 'function (raw) { return JSON.parse(raw).b }',
+        format: 'function (v) { return v.toFixed(2) + "元" }',
+        createdAt: new Date().toISOString(),
+      },
+    ])
+    const payload = transferService.exportConfig()
+    const p = payload.platforms.find((x) => x.id === 'exp-fmt')!
+    expect(p.format).toBe('function (v) { return v.toFixed(2) + "元" }')
+
+    // 导入 round-trip
+    const r = transferService.importConfig({ platforms: [payload.platforms[0]] })
+    expect(r.platforms).toBe(1)
+    const stored = platformRepo.getAll().find((x) => x.id === 'exp-fmt')
+    expect(stored?.format).toBe('function (v) { return v.toFixed(2) + "元" }')
+
+    // 旧导出(无 format)导入 -> format 空串, 不报错
+    platformRepo.saveAll([])
+    const legacy = transferService.importConfig({
+      platforms: [
+        {
+          id: 'no-fmt',
+          name: '旧格式平台',
+          request: { method: 'GET', url: 'https://x.example/api', headers: {} },
+          handler: 'function (raw) { return JSON.parse(raw).b }',
+        },
+      ],
+    })
+    expect(legacy.platforms).toBe(1)
+    expect(platformRepo.getAll().find((x) => x.id === 'no-fmt')?.format).toBe('')
+  })
 })

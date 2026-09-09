@@ -3,6 +3,7 @@ import {
   DEFAULT_HANDLER,
   buildHandler,
   fmt,
+  fmtAuto,
   formatValue,
   renderTemplate,
   resolveHandler,
@@ -37,6 +38,27 @@ describe('fmt', () => {
   })
   it('对象 JSON 序列化', () => {
     expect(fmt({ a: 1 })).toBe('{"a":1}')
+  })
+})
+
+describe('fmtAuto (折线图数据精度自适应)', () => {
+  it('最多保留 6 位小数并去尾零', () => {
+    expect(fmtAuto(0.5849)).toBe('0.5849')
+    expect(fmtAuto(28.12)).toBe('28.12')
+    expect(fmtAuto(1.5)).toBe('1.5')
+    expect(fmtAuto(92.0481)).toBe('92.0481')
+  })
+  it('整数原样不带小数位', () => {
+    expect(fmtAuto(12)).toBe('12')
+    expect(fmtAuto(0)).toBe('0')
+    expect(fmtAuto(-7)).toBe('-7')
+  })
+  it('超出 6 位时四舍五入到 6 位', () => {
+    expect(fmtAuto(12.3456789)).toBe('12.345679')
+  })
+  it('浮点误差经 6 位定点收敛', () => {
+    expect(fmtAuto(0.1 + 0.2)).toBe('0.3')
+    expect(fmtAuto(19.07)).toBe('19.07')
   })
 })
 

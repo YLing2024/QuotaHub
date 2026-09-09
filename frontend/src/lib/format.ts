@@ -11,6 +11,18 @@ export const fmt = (v: unknown): string => {
   return n % 1 === 0 ? n.toString() : n.toFixed(2)
 }
 
+// 数据精度自适应格式化(折线图 hover/涨跌统计用): 整数原样; 非整数最多保留 6 位小数并去尾零。
+// 0.5849 -> '0.5849'; 28.12 -> '28.12'; 1.5 -> '1.5'; 12 -> '12'; 12.3456789 -> '12.345679'; 0.1+0.2 -> '0.3'
+export const fmtAuto = (v: number): string => {
+  if (typeof v !== 'number' || !Number.isFinite(v)) return typeof v === 'number' ? String(v) : '—'
+  const n = Number(v.toFixed(6))
+  if (Number.isInteger(n)) return String(n)
+  let s = n.toFixed(6)
+  s = s.replace(/0+$/, '')
+  if (s.endsWith('.')) s = s.slice(0, -1)
+  return s
+}
+
 export const formatValue = (v: unknown): string => {
   if (v === undefined || v === null) return '（无返回值）'
   if (typeof v === 'object') return JSON.stringify(v, null, 2)

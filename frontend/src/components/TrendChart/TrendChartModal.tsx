@@ -8,7 +8,7 @@
 
 import { useEffect, useRef } from 'react'
 import { getHistory } from '@/api/endpoints'
-import { fmt } from '@/lib/format'
+import { fmtAuto } from '@/lib/format'
 import type { SamplePoint } from '@/types'
 import {
   buildPreviewGeo,
@@ -204,7 +204,7 @@ export default function TrendChartModal({ id, name, onClose }: Props) {
       ctx.fill()
       ctx.stroke()
 
-      const valText = fmt(p.v)
+      const valText = fmtAuto(p.v)
       const timeText = new Date(new Date(p.t).getTime()).toLocaleString('zh-CN', {
         month: '2-digit',
         day: '2-digit',
@@ -418,7 +418,7 @@ export default function TrendChartModal({ id, name, onClose }: Props) {
         const p = pts[idx]
         const vx = x(idx)
         const vy = y(p.v)
-        const text = fmt(p.v)
+        const text = fmtAuto(p.v)
         ctx.font = `bold 12px ${FONT_STACK}`
         const tw = ctx.measureText(text).width
         const bw = Math.ceil(tw) + 12
@@ -451,7 +451,7 @@ export default function TrendChartModal({ id, name, onClose }: Props) {
       const diff = lastV - first
       const diffPct = first !== 0 ? (diff / Math.abs(first)) * 100 : 0
       const arrow = diff > 0 ? '↑' : diff < 0 ? '↓' : '→'
-      stats.textContent = `${pts.length} 个采样点 · ${arrow} ${diff >= 0 ? '+' : ''}${fmt(diff)} (${diffPct >= 0 ? '+' : ''}${fmt(diffPct)}%)`
+      stats.textContent = `${pts.length} 个采样点 · ${arrow} ${diff >= 0 ? '+' : ''}${fmtAuto(diff)} (${diffPct >= 0 ? '+' : ''}${fmtAuto(diffPct)}%)`
     }
 
     // 预览条: 全量历史迷你折线 + 窗口遮罩(未选中灰化 / 选中高亮 + 边缘手柄)

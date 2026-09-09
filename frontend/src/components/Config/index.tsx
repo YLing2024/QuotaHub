@@ -32,6 +32,7 @@ interface FormState {
   url: string
   headersText: string
   handlerText: string
+  formatText: string
 }
 
 const EMPTY_FORM: FormState = {
@@ -42,6 +43,7 @@ const EMPTY_FORM: FormState = {
   url: '',
   headersText: DEFAULT_HEADERS,
   handlerText: DEFAULT_HANDLER,
+  formatText: '',
 }
 
 function fillFormState(p: Platform): FormState {
@@ -56,6 +58,7 @@ function fillFormState(p: Platform): FormState {
         ? JSON.stringify(p.request.body)
         : '',
     handlerText: resolveHandler(p),
+    formatText: p.format || '',
   }
 }
 
@@ -106,6 +109,7 @@ export default function ConfigTab() {
       url: f.homepage.trim(),
       request: { method: f.method, url: f.url, headers, body },
       handler: f.handlerText,
+      format: f.formatText.trim(),
     }
   }
 
@@ -522,8 +526,24 @@ export default function ConfigTab() {
                 onModEnter={() => void validate()}
               />
               <span className="field__label field__label--hint">
-                返回值可为数字或字符串：数字自动格式化（整数原样、小数两位）；字符串原样展示（如
-                f2(x) + ' 元'），其中可提取出的数字部分会用于趋势图，纯文本（如 '已过期'）只展示不入历史
+                返回余额数值（number），不要拼单位；单位 / 前后缀 / 小数位写在右侧「显示格式函数」里
+              </span>
+            </div>
+          </div>
+          <div className="form__row">
+            <div className="field field--wide">
+              <label className="field__label">
+                显示格式函数（可选，入参 v 为处理函数返回的数值，返回最终展示字符串）
+              </label>
+              <CodeEditor
+                value={form.formatText}
+                mode="js"
+                onChange={(v) => patchForm({ formatText: v })}
+                onModEnter={() => void validate()}
+              />
+              <span className="field__label field__label--hint">
+                为空时按默认数字格式显示（整数原样、小数两位）。示例：v.toFixed(4) + 'G' 表示流量保留
+                4 位小数并带 G 单位；返回非字符串 / 抛错时自动回退默认格式
               </span>
             </div>
           </div>

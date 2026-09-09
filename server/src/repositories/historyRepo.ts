@@ -1,20 +1,17 @@
 import Database from 'better-sqlite3'
 import { getDb } from '../db/connection.js'
 import { MAX_POINTS_PER_PLATFORM } from '../db/init.js'
-import { extractNumeric } from '../lib/value.js'
 import type { SamplePoint } from '../types.js'
 
 // 历史采样数据访问 (SQLite, 预处理语句防注入)
-// 形状与旧 history.json 的 {v,t} 保持一致; 每平台最多保留 MAX_POINTS_PER_PLATFORM 点
-// 值语义: number 源平台 value_text=NULL; 字符串且可提取数字 -> value=提取值, value_text=原字符串;
-//         纯文本(提取不出数字)不入库
+// 形状与旧 history.json 的 {v,t} 保持一致; 纯数值语义 —— 展示文本由平台 format 实时渲染,
+// 旧版展示快照列物理保留(幂等迁移用)但代码不再写入/读取
 
 interface SampleRow {
   id: number
   platform_id: string
   time: string
   value: number
-  value_text: string | null
 }
 
 const statements = new Map<string, Database.Statement>()
@@ -28,28 +25,14 @@ function stmt(sql: string): Database.Statement {
   return s
 }
 
-function toPoint(r: SampleRow): SamplePoint {
-  return r.value_text != null ? { v: r.value, t: r.time, text: r.value_text } : { v: r.value, t: r.time }
-}
-
-export function record(platformId: string, value: number | string, fetchedAt?: string): boolean {
-  if (!platformId) return false
+export function record(platformId: string, value: number, fetchedAt?: string): boolean {
+  if (!platformId || !Number.isFinite(value)) return false
   const t = fetchedAt || new Date().toISOString()
-  if (typeof value === 'number') {
-    if (!Number.isFinite(value)) return false
-    stmt('INSERT INTO history_samples(platform_id, time, value, value_text) VALUES (?, ?, ?, NULL)').run(
-      platformId,
-      t,
-      value,
-    )
-  } else {
-    // 字符串: 能提取出数字 -> 入历史(带展示快照); 纯文本 -> 不入库
-    const n = extractNumeric(value)
-    if (n === null) return false
-    stmt(
-      'INSERT INTO history_samples(platform_id, time, value, value_text) VALUES (?, ?, ?, ?)',
-    ).run(platformId, t, n, value)
-  }
+  stmt('INSERT INTO history_samples(platform_id, time, value) VALUES (?, ?, ?)').run(
+    platformId,
+    t,
+    value,
+  )
   trim(platformId)
   return true
 }
@@ -66,20 +49,20 @@ export function trim(platformId: string): void {
   ).run(platformId, platformId, MAX_POINTS_PER_PLATFORM)
 }
 
-// 时间升序返回 (等价旧数组插入顺序); 字符串源点附带 text 快照
+// 时间升序返回 (等价旧数组插入顺序)
 export function get(platformId: string): SamplePoint[] {
   const rows = stmt(
-    'SELECT id, platform_id, time, value, value_text FROM history_samples WHERE platform_id = ? ORDER BY time ASC, id ASC',
+    'SELECT id, platform_id, time, value FROM history_samples WHERE platform_id = ? ORDER BY time ASC, id ASC',
   ).all(platformId) as SampleRow[]
-  return rows.map(toPoint)
+  return rows.map((r) => ({ v: r.value, t: r.time }))
 }
 
 // 最新一个采样点 (面板当前值来源)
 export function latest(platformId: string): SamplePoint | null {
   const row = stmt(
-    'SELECT id, platform_id, time, value, value_text FROM history_samples WHERE platform_id = ? ORDER BY time DESC, id DESC LIMIT 1',
+    'SELECT id, platform_id, time, value FROM history_samples WHERE platform_id = ? ORDER BY time DESC, id DESC LIMIT 1',
   ).get(platformId) as SampleRow | undefined
-  return row ? toPoint(row) : null
+  return row ? { v: row.value, t: row.time } : null
 }
 
 export function remove(platformId: string): void {

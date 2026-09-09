@@ -1,11 +1,11 @@
 import { historyRepo, platformRepo, settingsRepo } from '../repositories/index.js'
-import { fetchBalance } from '../lib/fetcher.js'
+import { fetchBalance, runFormat } from '../lib/fetcher.js'
 import { logService } from './logService.js'
 import type { BalanceCard, Platform } from '../types.js'
 
 // 采集监控业务逻辑: fetcher -> 写 history_samples; 维护"最近一次失败"运行时状态
 // 设计约定: 不单独持久化当前 balance, 面板最新值 = 历史采样最新点
-// 字符串语义: 可提取数字的字符串 -> 数值入历史 + 展示快照; 纯文本 -> 只展示不入历史
+// 纯数值语义: handler 返回有限数字入历史; 展示文本 = platform.format 实时渲染(text), 渲染失败 -> null
 
 interface LastError {
   error: string
@@ -13,15 +13,13 @@ interface LastError {
 }
 
 const lastErrors = new Map<string, LastError>()
-// 纯文本平台运行期最近一次返回(仅存在于本次进程生命周期, 重启后到下次抓取前显示 '—')
-const lastText = new Map<string, string>()
 
 let timer: NodeJS.Timeout | null = null
 let running = false
 
 export interface FetchOutcome {
   ok: boolean
-  value?: number | string
+  value?: number
   error?: string
   fetchedAt?: string
 }
@@ -31,14 +29,7 @@ async function collect(p: Platform): Promise<FetchOutcome> {
   try {
     const result = await fetchBalance(p)
     const fetchedAt = new Date().toISOString()
-    const recorded = historyRepo.record(p.id, result.value, fetchedAt)
-    if (recorded) {
-      // 有历史点(数值或带数值的字符串): 清除残留的纯文本态
-      lastText.delete(p.id)
-    } else if (typeof result.value === 'string') {
-      // 纯文本: 不入历史, 仅记录展示文本
-      lastText.set(p.id, result.value)
-    }
+    historyRepo.record(p.id, result.value, fetchedAt)
     lastErrors.delete(p.id)
     return { ok: true, value: result.value, fetchedAt }
   } catch (e) {
@@ -147,6 +138,17 @@ function stop(): void {
 
 // 面板数据 GET /api/platforms/balances:
 // 最新值 = 历史采样最新点; 仅当失败发生在最新采样之后才显示错误
+// text = 平台 format 函数在最新数值上实时渲染的结果(抛错/超时/非字符串 -> null, 前端回退 fmt(value))
+function renderText(format: string | undefined, v: number): string | null {
+  if (!format || !String(format).trim()) return null
+  try {
+    const t = runFormat(String(format), v)
+    return typeof t === 'string' ? t : null
+  } catch {
+    return null
+  }
+}
+
 function buildDashboard(): { updatedAt: string; platforms: BalanceCard[] } {
   const platforms = platformRepo.getAll()
   const data = platforms.map((p) => {
@@ -160,13 +162,9 @@ function buildDashboard(): { updatedAt: string; platforms: BalanceCard[] } {
       error = err.error
       fetchedAt = err.fetchedAt
     } else if (latestPoint) {
-      // 数值源: value; 字符串源: text=展示快照 + value=可绘图数值(趋势图用)
-      if (latestPoint.text != null) text = latestPoint.text
       value = latestPoint.v
+      text = renderText(p.format, latestPoint.v)
       fetchedAt = latestPoint.t
-    } else {
-      const lt = lastText.get(p.id)
-      if (lt != null) text = lt
     }
     return { id: p.id, name: p.name, url: p.url, value, text, error, fetchedAt }
   })

@@ -165,7 +165,7 @@ describe('reorder / balances / history API', () => {
     expect(card.error).toBeNull()
   })
 
-  it('字符串平台 fetch -> 面板 text 为展示文本, value 为数值', async () => {
+  it('handler 返回字符串(配置错误) -> fetch 502 提示必须返回数字', async () => {
     const rc = await req<{ id: string }>(base, 'POST', '/api/platforms', {
       name: '字符串平台',
       request: { url: 'https://mock.test/api' },
@@ -175,50 +175,60 @@ describe('reorder / balances / history API', () => {
     const strPid = rc.body.id
 
     stubFetchOk(1)
-    const f = await req<{ ok: boolean; value: number | string }>(
+    const f = await req<{ ok: boolean; error: string }>(
       base,
       'POST',
       `/api/platforms/${strPid}/fetch`,
     )
-    expect(f.status).toBe(200)
-    expect(f.body.value).toBe('28.12元')
-
-    const dash = await req<{
-      platforms: Array<{ id: string; value: number | null; text: string | null }>
-    }>(base, 'GET', '/api/platforms/balances')
-    const card = dash.body.platforms.find((p) => p.id === strPid)!
-    expect(card.text).toBe('28.12元')
-    expect(card.value).toBeCloseTo(28.12)
-  })
-
-  it('纯文本平台 fetch -> 面板 text 展示, value=null, 无报错; 删除后消失', async () => {
-    const rc = await req<{ id: string }>(base, 'POST', '/api/platforms', {
-      name: '纯文本平台',
-      request: { url: 'https://mock.test/api' },
-      handler: 'function (raw) { return "已过期" }',
-    })
-    expect(rc.status).toBe(201)
-    const txtPid = rc.body.id
-
-    stubFetchOk(1)
-    const f = await req<{ ok: boolean; value: number | string }>(
-      base,
-      'POST',
-      `/api/platforms/${txtPid}/fetch`,
-    )
-    expect(f.status).toBe(200)
-    expect(f.body.value).toBe('已过期')
+    expect(f.status).toBe(502)
+    expect(f.body.ok).toBe(false)
+    expect(f.body.error).toContain('处理函数必须返回数字')
 
     const dash = await req<{
       platforms: Array<{ id: string; value: number | null; text: string | null; error: string | null }>
     }>(base, 'GET', '/api/platforms/balances')
-    const card = dash.body.platforms.find((p) => p.id === txtPid)!
-    expect(card.text).toBe('已过期')
+    const card = dash.body.platforms.find((p) => p.id === strPid)!
+    expect(card.text).toBeNull()
     expect(card.value).toBeNull()
-    expect(card.error).toBeNull()
+    expect(card.error).toContain('处理函数必须返回数字')
 
-    const del = await req(base, 'DELETE', `/api/platforms/${txtPid}`)
+    const del = await req(base, 'DELETE', `/api/platforms/${strPid}`)
     expect(del.status).toBe(204)
+  })
+
+  it('配置 format 的平台 -> fetch 后 balances text 为 format 渲染结果; 无 format -> text=null', async () => {
+    const rcFmt = await req<{ id: string }>(base, 'POST', '/api/platforms', {
+      name: '带格式平台',
+      request: { url: 'https://mock.test/api' },
+      handler: 'function (raw) { return JSON.parse(raw).balance }',
+      format: 'function (v) { return v.toFixed(2) + "元" }',
+    })
+    expect(rcFmt.status).toBe(201)
+    const fmtPid = rcFmt.body.id
+    const rcNoFmt = await req<{ id: string }>(base, 'POST', '/api/platforms', {
+      name: '无格式平台',
+      request: { url: 'https://mock.test/api' },
+      handler: 'function (raw) { return JSON.parse(raw).balance }',
+    })
+    expect(rcNoFmt.status).toBe(201)
+    const noFmtPid = rcNoFmt.body.id
+
+    stubFetchOk(28.12)
+    await req(base, 'POST', `/api/platforms/${fmtPid}/fetch`)
+    await req(base, 'POST', `/api/platforms/${noFmtPid}/fetch`)
+
+    const dash = await req<{
+      platforms: Array<{ id: string; value: number | null; text: string | null }>
+    }>(base, 'GET', '/api/platforms/balances')
+    const fmtCard = dash.body.platforms.find((p) => p.id === fmtPid)!
+    expect(fmtCard.value).toBeCloseTo(28.12)
+    expect(fmtCard.text).toBe('28.12元')
+    const noFmtCard = dash.body.platforms.find((p) => p.id === noFmtPid)!
+    expect(noFmtCard.value).toBeCloseTo(28.12)
+    expect(noFmtCard.text).toBeNull()
+
+    await req(base, 'DELETE', `/api/platforms/${fmtPid}`)
+    await req(base, 'DELETE', `/api/platforms/${noFmtPid}`)
   })
 
   it('fetch 失败 -> 502 + 错误态出现在 balances; 恢复后清除', async () => {
