@@ -137,10 +137,10 @@ describe('reorder / balances / history API', () => {
     expect(unknown.body.error).toBe('未知平台 id: zzz')
   })
 
-  it('balances 初始 value/text 为 null, 抓取后有最新值与 fetchedAt', async () => {
+  it('balances 初始 value/format 为 null, 抓取后有最新值与 fetchedAt', async () => {
     const empty = await req<{
       updatedAt: string
-      platforms: Array<{ id: string; value: number | null; text: string | null; fetchedAt: string | null }>
+      platforms: Array<{ id: string; value: number | null; format: string | null; fetchedAt: string | null }>
     }>(base, 'GET', '/api/platforms/balances')
     expect(empty.status).toBe(200)
     expect(new Date(empty.body.updatedAt).toString()).not.toBe('Invalid Date')
@@ -157,11 +157,11 @@ describe('reorder / balances / history API', () => {
     expect(f.body.value).toBeCloseTo(55.5)
 
     const dash = await req<{
-      platforms: Array<{ id: string; value: number | null; text: string | null; error: string | null }>
+      platforms: Array<{ id: string; value: number | null; format: string | null; error: string | null }>
     }>(base, 'GET', '/api/platforms/balances')
     const card = dash.body.platforms.find((p) => p.id === pid)!
     expect(card.value).toBeCloseTo(55.5)
-    expect(card.text).toBeNull()
+    expect(card.format).toBeNull()
     expect(card.error).toBeNull()
   })
 
@@ -185,10 +185,10 @@ describe('reorder / balances / history API', () => {
     expect(f.body.error).toContain('处理函数必须返回数字')
 
     const dash = await req<{
-      platforms: Array<{ id: string; value: number | null; text: string | null; error: string | null }>
+      platforms: Array<{ id: string; value: number | null; format: string | null; error: string | null }>
     }>(base, 'GET', '/api/platforms/balances')
     const card = dash.body.platforms.find((p) => p.id === strPid)!
-    expect(card.text).toBeNull()
+    expect(card.format).toBeNull()
     expect(card.value).toBeNull()
     expect(card.error).toContain('处理函数必须返回数字')
 
@@ -196,7 +196,7 @@ describe('reorder / balances / history API', () => {
     expect(del.status).toBe(204)
   })
 
-  it('配置 format 的平台 -> fetch 后 balances text 为 format 渲染结果; 无 format -> text=null', async () => {
+  it('配置 format 的平台 -> fetch 后 balances format 为源码透传; 无 format -> format=null', async () => {
     const rcFmt = await req<{ id: string }>(base, 'POST', '/api/platforms', {
       name: '带格式平台',
       request: { url: 'https://mock.test/api' },
@@ -218,14 +218,14 @@ describe('reorder / balances / history API', () => {
     await req(base, 'POST', `/api/platforms/${noFmtPid}/fetch`)
 
     const dash = await req<{
-      platforms: Array<{ id: string; value: number | null; text: string | null }>
+      platforms: Array<{ id: string; value: number | null; format: string | null }>
     }>(base, 'GET', '/api/platforms/balances')
     const fmtCard = dash.body.platforms.find((p) => p.id === fmtPid)!
     expect(fmtCard.value).toBeCloseTo(28.12)
-    expect(fmtCard.text).toBe('28.12元')
+    expect(fmtCard.format).toBe('function (v) { return v.toFixed(2) + "元" }')
     const noFmtCard = dash.body.platforms.find((p) => p.id === noFmtPid)!
     expect(noFmtCard.value).toBeCloseTo(28.12)
-    expect(noFmtCard.text).toBeNull()
+    expect(noFmtCard.format).toBeNull()
 
     await req(base, 'DELETE', `/api/platforms/${fmtPid}`)
     await req(base, 'DELETE', `/api/platforms/${noFmtPid}`)

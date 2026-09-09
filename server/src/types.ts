@@ -33,7 +33,7 @@ export interface Platform {
   extractor: string
   parse: string
   // 显示格式函数: JS 函数源码字符串, 入参 = handler 返回的数值, 返回最终展示字符串。
-  // 后端在 vm 沙箱实时渲染(与 handler 同级安全边界); 空/未配置时卡片回退默认 fmt(value)。
+  // 纯展示逻辑由前端主页渲染时执行(后端只透传源码); 空/未配置时卡片回退默认 fmt(value)。
   format?: string
   response?: LegacyResponse
   // 已弃用: 仅导入兼容保留, 不渲染/不导出
@@ -98,13 +98,14 @@ export interface LogOptions {
   meta?: Record<string, unknown>
 }
 
-// 面板卡片数据(最新值取自历史采样最新点; value=最新数值, text=format 渲染结果。无 format/渲染失败 -> text=null)
+// 面板卡片数据(最新值取自历史采样最新点; value=最新数值, format=展示格式函数源码原样透传。
+// 后端不再执行 format, 由前端主页渲染时执行; 无 format/执行失败时前端回退 fmt(value))
 export interface BalanceCard {
   id: string
   name: string
   url?: string
   value: number | null
-  text: string | null
+  format: string | null
   error: string | null
   fetchedAt: string | null
 }

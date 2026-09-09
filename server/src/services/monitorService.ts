@@ -1,11 +1,11 @@
 import { historyRepo, platformRepo, settingsRepo } from '../repositories/index.js'
-import { fetchBalance, runFormat } from '../lib/fetcher.js'
+import { fetchBalance } from '../lib/fetcher.js'
 import { logService } from './logService.js'
 import type { BalanceCard, Platform } from '../types.js'
 
 // 采集监控业务逻辑: fetcher -> 写 history_samples; 维护"最近一次失败"运行时状态
 // 设计约定: 不单独持久化当前 balance, 面板最新值 = 历史采样最新点
-// 纯数值语义: handler 返回有限数字入历史; 展示文本 = platform.format 实时渲染(text), 渲染失败 -> null
+// 纯数值语义: handler 返回有限数字入历史; 展示 = 前端主页渲染时执行 platform.format 源码(value -> 文本)
 
 interface LastError {
   error: string
@@ -138,24 +138,13 @@ function stop(): void {
 
 // 面板数据 GET /api/platforms/balances:
 // 最新值 = 历史采样最新点; 仅当失败发生在最新采样之后才显示错误
-// text = 平台 format 函数在最新数值上实时渲染的结果(抛错/超时/非字符串 -> null, 前端回退 fmt(value))
-function renderText(format: string | undefined, v: number): string | null {
-  if (!format || !String(format).trim()) return null
-  try {
-    const t = runFormat(String(format), v)
-    return typeof t === 'string' ? t : null
-  } catch {
-    return null
-  }
-}
-
+// format = 平台配置的展示格式函数源码原样透传(不执行, 由前端主页渲染时执行); 未配置 -> null
 function buildDashboard(): { updatedAt: string; platforms: BalanceCard[] } {
   const platforms = platformRepo.getAll()
   const data = platforms.map((p) => {
     const latestPoint = historyRepo.latest(p.id)
     const err = lastErrors.get(p.id)
     let value: number | null = null
-    let text: string | null = null
     let error: string | null = null
     let fetchedAt: string | null = null
     if (err && (!latestPoint || err.fetchedAt > latestPoint.t)) {
@@ -163,10 +152,9 @@ function buildDashboard(): { updatedAt: string; platforms: BalanceCard[] } {
       fetchedAt = err.fetchedAt
     } else if (latestPoint) {
       value = latestPoint.v
-      text = renderText(p.format, latestPoint.v)
       fetchedAt = latestPoint.t
     }
-    return { id: p.id, name: p.name, url: p.url, value, text, error, fetchedAt }
+    return { id: p.id, name: p.name, url: p.url, value, format: p.format || null, error, fetchedAt }
   })
   return { updatedAt: new Date().toISOString(), platforms: data }
 }
