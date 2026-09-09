@@ -24,6 +24,9 @@ import TransferModal, { type TransferRequest } from '@/components/Transfer/Trans
 
 const DEFAULT_HEADERS = '{\n  "Authorization": "Bearer 你的密钥"\n}'
 
+// 显示格式函数默认模板: 与内置自动格式化等价(整数原样 / 非整数两位小数)。留空 = 自动格式化
+const DEFAULT_FORMAT = 'function (v) {\n  return v % 1 === 0 ? String(v) : v.toFixed(2)\n}'
+
 interface FormState {
   name: string
   homepage: string
@@ -43,7 +46,7 @@ const EMPTY_FORM: FormState = {
   url: '',
   headersText: DEFAULT_HEADERS,
   handlerText: DEFAULT_HANDLER,
-  formatText: '',
+  formatText: DEFAULT_FORMAT,
 }
 
 function fillFormState(p: Platform): FormState {
@@ -58,7 +61,7 @@ function fillFormState(p: Platform): FormState {
         ? JSON.stringify(p.request.body)
         : '',
     handlerText: resolveHandler(p),
-    formatText: p.format || '',
+    formatText: p.format || DEFAULT_FORMAT,
   }
 }
 
