@@ -26,16 +26,15 @@ afterEach(() => {
   globalThis.fetch = realFetch
 })
 
-function addPlatform(id: string, name: string): void {
+function addPlatform(id: string, name: string, handler?: string): void {
   const list = platformRepo.getAll()
   list.push({
     id,
     name,
     request: { method: 'GET', url: 'https://mock.test/api', headers: {} },
-    handler: 'function (raw) { return JSON.parse(raw).balance }',
+    handler: handler ?? 'function (raw) { return JSON.parse(raw).balance }',
     extractor: '',
     parse: '',
-    display: { prefix: '', suffix: '' },
     createdAt: new Date().toISOString(),
   })
   platformRepo.saveAll(list)
@@ -52,10 +51,41 @@ describe('monitorService 采集流程 (fetcher -> history_samples)', () => {
 
     const dash = monitorService.buildDashboard()
     const card = dash.platforms.find((p) => p.id === 'mp1')!
-    expect(card.balance).toBeCloseTo(42.5)
+    expect(card.value).toBeCloseTo(42.5)
+    expect(card.text).toBeNull()
     expect(card.error).toBeNull()
     expect(card.fetchedAt).toBeTruthy()
     expect(historyRepo.get('mp1').length).toBe(1)
+  })
+
+  it('collect 字符串结果(可提取数字) -> 数值+文本均入库并反映到面板', async () => {
+    addPlatform('mpstr', '字符串平台', 'function (raw) { return "28.12元" }')
+    const p = platformRepo.getAll().find((x) => x.id === 'mpstr')!
+    stubFetch(async () => new Response(JSON.stringify({ x: 1 }), { status: 200 }))
+    const outcome = await monitorService.collect(p)
+    expect(outcome.ok).toBe(true)
+    expect(outcome.value).toBe('28.12元')
+
+    const card = monitorService.buildDashboard().platforms.find((c) => c.id === 'mpstr')!
+    expect(card.value).toBeCloseTo(28.12)
+    expect(card.text).toBe('28.12元')
+    expect(card.error).toBeNull()
+  })
+
+  it('collect 纯文本字符串(不入历史) -> 面板 text 展示; 无历史点/无 value', async () => {
+    addPlatform('mptxt', '纯文本平台', 'function (raw) { return "已过期" }')
+    const p = platformRepo.getAll().find((x) => x.id === 'mptxt')!
+    stubFetch(async () => new Response(JSON.stringify({ x: 1 }), { status: 200 }))
+    const outcome = await monitorService.collect(p)
+    expect(outcome.ok).toBe(true)
+    expect(outcome.value).toBe('已过期')
+
+    const card = monitorService.buildDashboard().platforms.find((c) => c.id === 'mptxt')!
+    expect(card.text).toBe('已过期')
+    expect(card.value).toBeNull()
+    expect(card.error).toBeNull()
+    // 纯文本不入历史(趋势图无此平台数据)
+    expect(historyRepo.get('mptxt')).toEqual([])
   })
 
   it('collect 失败 -> 面板显示错误态; 恢复成功后回到数值', async () => {
@@ -76,7 +106,7 @@ describe('monitorService 采集流程 (fetcher -> history_samples)', () => {
     expect(good.ok).toBe(true)
     card = monitorService.buildDashboard().platforms.find((c) => c.id === 'mp1')!
     expect(card.error).toBeNull()
-    expect(card.balance).toBeCloseTo(100)
+    expect(card.value).toBeCloseTo(100)
   })
 
   it('fetchOne 记录操作日志; 不存在平台抛 404', async () => {

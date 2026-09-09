@@ -17,7 +17,6 @@ const basePlatform = {
   name: '测试平台',
   request: { method: 'GET', url: 'https://example.com/api', headers: { Authorization: 'Bearer x' } },
   handler: 'function (raw) { return JSON.parse(raw).balance }',
-  display: { prefix: '$ ', suffix: '' },
 }
 
 function create(body: Record<string, unknown>): ReturnType<typeof platformService.createPlatform> {
@@ -25,12 +24,12 @@ function create(body: Record<string, unknown>): ReturnType<typeof platformServic
 }
 
 describe('platformService 平台 CRUD', () => {
-  it('normalizePlatform 缺省值与旧实现一致', () => {
+  it('normalizePlatform 缺省值与旧实现一致(不再生成 display)', () => {
     const p = platformService.normalizePlatform({})
     expect(p.name).toBe('未命名平台')
     expect(p.request).toEqual({ method: 'GET', url: '', headers: {} })
     expect(p.handler).toBe('')
-    expect(p.display).toEqual({ prefix: '', suffix: '' })
+    expect(p).not.toHaveProperty('display')
     expect(p.url).toBe('')
     expect(p.id).toMatch(/^[0-9a-f-]{36}$/)
     expect(new Date(p.createdAt).toString()).not.toBe('Invalid Date')
@@ -47,29 +46,46 @@ describe('platformService 平台 CRUD', () => {
     }
   })
 
-  it('createPlatform 成功并落盘; listPlatforms 输出 PublicPlatform', () => {
+  it('createPlatform 成功并落盘; listPlatforms 输出不含 display 的 PublicPlatform', () => {
     const created = create(basePlatform)
     expect(created.name).toBe('测试平台')
-    // pickDisplay 会 trim (与旧实现一致)
-    expect(created.display).toEqual({ prefix: '$', suffix: '' })
+    expect(created).not.toHaveProperty('display')
     expect(platformRepo.getAll().length).toBe(1)
+    const stored = platformRepo.getAll()[0]!
+    expect(stored).not.toHaveProperty('display')
     const listed = platformService.listPlatforms()
     expect(listed[0]!.id).toBe(created.id)
+    expect(listed[0]).not.toHaveProperty('display')
   })
 
-  it('toPublic 旧数据 response.prefix/suffix -> display 回退', () => {
+  it('create 忽略 body.display(不落盘 legacy display); 旧条目 legacy 字段编辑后保留', () => {
+    const created = create({ ...basePlatform, display: { prefix: '$', suffix: 'USD' } } as never)
+    expect(created).not.toHaveProperty('display')
+    // 存储中也不应生成 display
+    const stored = platformRepo.getAll().find((p) => p.id === created.id)!
+    expect(stored).not.toHaveProperty('display')
+  })
+
+  it('toPublic 剔除 legacy display 与 response.prefix/suffix; 存储仍保留 legacy', () => {
     platformRepo.saveAll([
       {
         id: 'legacy',
         name: '旧平台',
         request: { method: 'GET', url: '', headers: {} },
         handler: 'f',
-        response: { prefix: '~', suffix: ' 元' },
+        response: { path: 'data.x', prefix: '~', suffix: ' 元' },
+        display: { prefix: '~', suffix: ' 元' },
         createdAt: new Date().toISOString(),
-      },
+      } as never,
     ])
     const pub = platformService.listPlatforms()[0]!
-    expect(pub.display).toEqual({ prefix: '~', suffix: ' 元' })
+    expect(pub).not.toHaveProperty('display')
+    // response 内 prefix/suffix 不输出, path 等保留
+    expect(pub.response).toEqual({ path: 'data.x' })
+    // 存储层 legacy 字段原样保留(导入兼容), 不参与渲染与导出
+    const stored = platformRepo.getAll()[0]!
+    expect(stored.display).toEqual({ prefix: '~', suffix: ' 元' })
+    expect(stored.response).toEqual({ path: 'data.x', prefix: '~', suffix: ' 元' })
   })
 
   it('updatePlatform 部分更新; handler 覆盖时清空 extractor/parse', () => {

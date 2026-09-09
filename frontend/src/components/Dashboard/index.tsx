@@ -7,10 +7,6 @@ import TrendChartModal from '@/components/TrendChart/TrendChartModal'
 
 const MAX_INTERVAL = 86400
 
-function Affix({ text }: { text: string }) {
-  return text ? <span className="card__affix">{text}</span> : null
-}
-
 function BalanceCardView({
   p,
   refreshing,
@@ -29,9 +25,11 @@ function BalanceCardView({
   ) : (
     <span className="card__platform">{p.name}</span>
   )
+  const isEmpty = p.value == null && p.text == null
+  const balanceText = p.text ?? (p.value != null ? fmt(p.value) : '—')
   return (
     <article
-      className={`card${p.balance == null ? ' card--empty' : ''}${p.error ? ' card--error' : ''}`}
+      className={`card${isEmpty ? ' card--empty' : ''}${p.error ? ' card--error' : ''}`}
     >
       <div className="card__top">
         {title}
@@ -46,7 +44,7 @@ function BalanceCardView({
           >
             {refreshing ? '…' : '↻'}
           </button>
-          {p.balance != null && (
+          {p.value != null && (
             <button
               type="button"
               className="card__chart"
@@ -59,17 +57,7 @@ function BalanceCardView({
           )}
         </span>
       </div>
-      <div className="card__balance">
-        {p.balance == null ? (
-          '—'
-        ) : (
-          <>
-            <Affix text={p.display?.prefix ?? ''} />
-            {fmt(p.balance)}
-            <Affix text={p.display?.suffix ?? ''} />
-          </>
-        )}
-      </div>
+      <div className="card__balance">{balanceText}</div>
       <div className={`card__foot${p.error ? ' card__foot--error' : ''}`}>
         {p.error || (p.fetchedAt ? `获取于 ${new Date(p.fetchedAt).toLocaleString('zh-CN')}` : '尚未获取')}
       </div>

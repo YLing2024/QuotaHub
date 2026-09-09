@@ -14,7 +14,6 @@ const basePlatform = (over: Partial<Platform>): Platform => ({
   name: 'P',
   request: { method: 'GET', url: 'https://api.example.com', headers: {} },
   handler: '',
-  display: { prefix: '', suffix: '' },
   createdAt: '2026-01-01T00:00:00Z',
   ...over,
 })

@@ -2,6 +2,7 @@ import vm from 'node:vm'
 import net from 'node:net'
 import dns from 'node:dns/promises'
 import { config } from '../config.js'
+import { extractNumeric } from './value.js'
 import type { PlatformRequest } from '../types.js'
 
 // 平台余额抓取 + 沙箱执行 (等价迁移自 src/fetcher.js)
@@ -142,15 +143,6 @@ export function resolvePath(obj: unknown, pathExpr: unknown): unknown {
     cur = (cur as Record<string, unknown>)[seg]
   }
   return cur
-}
-
-function toNumber(v: unknown): unknown {
-  if (typeof v === 'number') return v
-  if (typeof v === 'string') {
-    const n = Number(v.replace(/[,\s¥$元]/g, ''))
-    return Number.isNaN(n) ? v : n
-  }
-  return v
 }
 
 function isPrivateIp(ip: string): boolean {
@@ -298,7 +290,7 @@ export interface FetchTarget {
   response?: { path?: string; divider?: number | string; prefix?: string; suffix?: string }
 }
 
-export async function fetchBalance(platform: FetchTarget): Promise<{ value: number }> {
+export async function fetchBalance(platform: FetchTarget): Promise<{ value: number | string }> {
   const request = platform.request as PlatformRequest | undefined
   if (!request || !request.url) {
     throw new Error('未配置请求 URL')
@@ -371,12 +363,15 @@ export async function fetchBalance(platform: FetchTarget): Promise<{ value: numb
     }
     value = resolvePath(data, platform.response.path)
     if (value !== undefined && Number(platform.response.divider)) {
-      value = (toNumber(value) as number) / Number(platform.response.divider)
+      const n = extractNumeric(value)
+      value = n !== null ? n / Number(platform.response.divider) : value
     }
   } else {
     throw new Error('未配置处理函数')
   }
-  if (value === undefined) throw new Error('处理函数未返回余额')
+  if (value === undefined || value === null) throw new Error('处理函数未返回余额')
+  if (typeof value === 'string' && !value.trim()) throw new Error('处理函数未返回余额')
+  if (typeof value !== 'number' && typeof value !== 'string') throw new Error('处理函数未返回余额')
 
-  return { value: toNumber(value) as number }
+  return { value }
 }

@@ -32,8 +32,6 @@ interface FormState {
   url: string
   headersText: string
   handlerText: string
-  prefix: string
-  suffix: string
 }
 
 const EMPTY_FORM: FormState = {
@@ -44,13 +42,9 @@ const EMPTY_FORM: FormState = {
   url: '',
   headersText: DEFAULT_HEADERS,
   handlerText: DEFAULT_HANDLER,
-  prefix: '',
-  suffix: '',
 }
 
 function fillFormState(p: Platform): FormState {
-  // display 兼容回退: 旧配置 response.prefix/suffix
-  const d = p.display ?? (p.response ? { prefix: p.response.prefix || '', suffix: p.response.suffix || '' } : undefined)
   return {
     name: p.name || '',
     homepage: p.url || '',
@@ -62,8 +56,6 @@ function fillFormState(p: Platform): FormState {
         ? JSON.stringify(p.request.body)
         : '',
     handlerText: resolveHandler(p),
-    prefix: d?.prefix || '',
-    suffix: d?.suffix || '',
   }
 }
 
@@ -114,7 +106,6 @@ export default function ConfigTab() {
       url: f.homepage.trim(),
       request: { method: f.method, url: f.url, headers, body },
       handler: f.handlerText,
-      display: { prefix: f.prefix.trim(), suffix: f.suffix.trim() },
     }
   }
 
@@ -522,8 +513,7 @@ export default function ConfigTab() {
           <div className="form__row">
             <div className="field field--wide">
               <label className="field__label">
-                处理函数（raw 为原始响应文本，在函数内自由解析并返回余额数值：JSON 接口用
-                JSON.parse(raw)，非 JSON 响应可用 eval）
+                处理函数（raw 为原始响应文本，在函数内自由解析并返回余额）
               </label>
               <CodeEditor
                 value={form.handlerText}
@@ -531,36 +521,9 @@ export default function ConfigTab() {
                 onChange={(v) => patchForm({ handlerText: v })}
                 onModEnter={() => void validate()}
               />
-            </div>
-          </div>
-          <div className="form__row">
-            <div className="field">
-              <label className="field__label" htmlFor="f-prefix">
-                显示前缀
-              </label>
-              <input
-                className="field__input"
-                id="f-prefix"
-                placeholder="$"
-                value={form.prefix}
-                onChange={(e) => patchForm({ prefix: e.target.value })}
-              />
-            </div>
-            <div className="field">
-              <label className="field__label" htmlFor="f-suffix">
-                显示后缀
-              </label>
-              <input
-                className="field__input"
-                id="f-suffix"
-                placeholder="USD"
-                value={form.suffix}
-                onChange={(e) => patchForm({ suffix: e.target.value })}
-              />
-            </div>
-            <div className="field field--wide">
               <span className="field__label field__label--hint">
-                仅影响监控面板显示，例如：$ 8.51 USD
+                返回值可为数字或字符串：数字自动格式化（整数原样、小数两位）；字符串原样展示（如
+                f2(x) + ' 元'），其中可提取出的数字部分会用于趋势图，纯文本（如 '已过期'）只展示不入历史
               </span>
             </div>
           </div>

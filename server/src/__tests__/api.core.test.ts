@@ -65,23 +65,21 @@ describe('平台 CRUD API', () => {
     expect(r.body.error).toBe('需要配置处理函数（或旧的提取/解析函数）')
   })
 
-  it('POST 创建 -> 201 完整结构', async () => {
+  it('POST 创建 -> 201 完整结构(无 display)', async () => {
     const r = await req<{
       id: string
       name: string
-      display: { prefix: string; suffix: string }
       request: { method: string; url: string }
       createdAt: string
     }>(base, 'POST', '/api/platforms', {
       name: '平台A',
       request: { url: 'https://mock.test/api', headers: { Authorization: 'Bearer k' } },
       handler: 'function (raw) { return JSON.parse(raw).balance }',
-      display: { prefix: '$ ', suffix: '' },
       url: 'https://a.example',
     })
     expect(r.status).toBe(201)
     expect(r.body.name).toBe('平台A')
-    expect(r.body.display.prefix).toBe('$') // pickDisplay trim (与旧实现一致)
+    expect(r.body).not.toHaveProperty('display')
     expect(r.body.request.url).toBe('https://mock.test/api')
     expect(r.body.id).toMatch(/^[0-9a-f-]{36}$/)
     pid = r.body.id
@@ -139,14 +137,14 @@ describe('reorder / balances / history API', () => {
     expect(unknown.body.error).toBe('未知平台 id: zzz')
   })
 
-  it('balances 初始 balance=null, 抓取后有最新值与 fetchedAt', async () => {
+  it('balances 初始 value/text 为 null, 抓取后有最新值与 fetchedAt', async () => {
     const empty = await req<{
       updatedAt: string
-      platforms: Array<{ id: string; balance: number | null; fetchedAt: string | null }>
+      platforms: Array<{ id: string; value: number | null; text: string | null; fetchedAt: string | null }>
     }>(base, 'GET', '/api/platforms/balances')
     expect(empty.status).toBe(200)
     expect(new Date(empty.body.updatedAt).toString()).not.toBe('Invalid Date')
-    expect(empty.body.platforms.find((p) => p.id === pid)?.balance).toBeNull()
+    expect(empty.body.platforms.find((p) => p.id === pid)?.value).toBeNull()
 
     stubFetchOk(55.5)
     const f = await req<{ ok: boolean; value: number; fetchedAt: string }>(
@@ -159,11 +157,68 @@ describe('reorder / balances / history API', () => {
     expect(f.body.value).toBeCloseTo(55.5)
 
     const dash = await req<{
-      platforms: Array<{ id: string; balance: number | null; error: string | null }>
+      platforms: Array<{ id: string; value: number | null; text: string | null; error: string | null }>
     }>(base, 'GET', '/api/platforms/balances')
     const card = dash.body.platforms.find((p) => p.id === pid)!
-    expect(card.balance).toBeCloseTo(55.5)
+    expect(card.value).toBeCloseTo(55.5)
+    expect(card.text).toBeNull()
     expect(card.error).toBeNull()
+  })
+
+  it('字符串平台 fetch -> 面板 text 为展示文本, value 为数值', async () => {
+    const rc = await req<{ id: string }>(base, 'POST', '/api/platforms', {
+      name: '字符串平台',
+      request: { url: 'https://mock.test/api' },
+      handler: 'function (raw) { return "28.12元" }',
+    })
+    expect(rc.status).toBe(201)
+    const strPid = rc.body.id
+
+    stubFetchOk(1)
+    const f = await req<{ ok: boolean; value: number | string }>(
+      base,
+      'POST',
+      `/api/platforms/${strPid}/fetch`,
+    )
+    expect(f.status).toBe(200)
+    expect(f.body.value).toBe('28.12元')
+
+    const dash = await req<{
+      platforms: Array<{ id: string; value: number | null; text: string | null }>
+    }>(base, 'GET', '/api/platforms/balances')
+    const card = dash.body.platforms.find((p) => p.id === strPid)!
+    expect(card.text).toBe('28.12元')
+    expect(card.value).toBeCloseTo(28.12)
+  })
+
+  it('纯文本平台 fetch -> 面板 text 展示, value=null, 无报错; 删除后消失', async () => {
+    const rc = await req<{ id: string }>(base, 'POST', '/api/platforms', {
+      name: '纯文本平台',
+      request: { url: 'https://mock.test/api' },
+      handler: 'function (raw) { return "已过期" }',
+    })
+    expect(rc.status).toBe(201)
+    const txtPid = rc.body.id
+
+    stubFetchOk(1)
+    const f = await req<{ ok: boolean; value: number | string }>(
+      base,
+      'POST',
+      `/api/platforms/${txtPid}/fetch`,
+    )
+    expect(f.status).toBe(200)
+    expect(f.body.value).toBe('已过期')
+
+    const dash = await req<{
+      platforms: Array<{ id: string; value: number | null; text: string | null; error: string | null }>
+    }>(base, 'GET', '/api/platforms/balances')
+    const card = dash.body.platforms.find((p) => p.id === txtPid)!
+    expect(card.text).toBe('已过期')
+    expect(card.value).toBeNull()
+    expect(card.error).toBeNull()
+
+    const del = await req(base, 'DELETE', `/api/platforms/${txtPid}`)
+    expect(del.status).toBe(204)
   })
 
   it('fetch 失败 -> 502 + 错误态出现在 balances; 恢复后清除', async () => {
@@ -178,20 +233,20 @@ describe('reorder / balances / history API', () => {
     expect(f.body.error).toContain('模拟网络故障')
 
     const dash = await req<{
-      platforms: Array<{ id: string; balance: number | null; error: string | null }>
+      platforms: Array<{ id: string; value: number | null; error: string | null }>
     }>(base, 'GET', '/api/platforms/balances')
     expect(dash.body.platforms.find((p) => p.id === pid)?.error).toContain('模拟网络故障')
 
     stubFetchOk(66)
     await req(base, 'POST', `/api/platforms/${pid}/fetch`)
-    const dash2 = await req<{ platforms: Array<{ error: string | null; balance: number | null }> }>(
+    const dash2 = await req<{ platforms: Array<{ error: string | null; value: number | null }> }>(
       base,
       'GET',
       '/api/platforms/balances',
     )
     const card2 = dash2.body.platforms.find((p) => p.id === pid)!
     expect(card2.error).toBeNull()
-    expect(card2.balance).toBeCloseTo(66)
+    expect(card2.value).toBeCloseTo(66)
   })
 
   it(':id/history 返回折线图采样点 ({v,t} 升序)', async () => {

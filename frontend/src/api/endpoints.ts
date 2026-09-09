@@ -21,7 +21,7 @@ export const refreshAllPlatforms = () => api<RefreshResult>('/api/platforms/refr
 
 export const listPlatforms = () => api<Platform[]>('/api/platforms')
 
-export type PlatformPayload = Pick<Platform, 'name' | 'url' | 'request' | 'handler' | 'display'>
+export type PlatformPayload = Pick<Platform, 'name' | 'url' | 'request' | 'handler'>
 
 export const createPlatform = (payload: PlatformPayload) =>
   api<Platform>('/api/platforms', { method: 'POST', body: payload })
@@ -36,13 +36,13 @@ export const reorderPlatforms = (ids: string[]) =>
   api<{ ok: true }>('/api/platforms/reorder', { method: 'PUT', body: { ids } })
 
 export const testPlatform = (id: string) =>
-  api<{ ok: true; value: number; testedAt: string } | { ok: false; error: string }>(
+  api<{ ok: true; value: number | string; testedAt: string } | { ok: false; error: string }>(
     `/api/platforms/${encodeURIComponent(id)}/test`,
     { method: 'POST' },
   )
 
 export const fetchPlatformBalance = (id: string) =>
-  api<{ ok: true; value: number; fetchedAt: string } | { ok: false; error: string }>(
+  api<{ ok: true; value: number | string; fetchedAt: string } | { ok: false; error: string }>(
     `/api/platforms/${encodeURIComponent(id)}/fetch`,
     { method: 'POST' },
   )
@@ -50,7 +50,7 @@ export const fetchPlatformBalance = (id: string) =>
 export const validatePlatformConfig = (
   payload: Omit<PlatformPayload, 'name' | 'url'> & { name?: string; url?: string },
 ) =>
-  api<{ ok: true; value: number } | { ok: false; error: string }>('/api/platforms/validate', {
+  api<{ ok: true; value: number | string } | { ok: false; error: string }>('/api/platforms/validate', {
     method: 'POST',
     body: payload,
   })

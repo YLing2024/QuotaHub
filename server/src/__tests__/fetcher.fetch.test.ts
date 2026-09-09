@@ -102,13 +102,35 @@ describe('fetchBalance 全链路 (本地 HTTP)', () => {
     ).rejects.toThrow('处理函数未返回余额')
   })
 
-  it('字符串数字/货币符号归一为数值', async () => {
+  it('字符串结果不再归一: handler 返回展示原串(含货币符号), 数值提取交给 extractNumeric', async () => {
     const r = await fetchBalance({
       request: { url: `${base}/plain` },
       handler: 'function (raw) { return "$8.51 元" }',
     })
-    // toNumber 去掉 , $ ¥ 空格/元
-    expect(r.value).toBeCloseTo(8.51)
+    expect(r.value).toBe('$8.51 元')
+  })
+
+  it('字符串返回数字/单位拼接串, 同样原样透传', async () => {
+    const r = await fetchBalance({
+      request: { url: `${base}/json` },
+      handler: 'function (raw) { var n = JSON.parse(raw).data.quota / 500000; return n + "元" }',
+    })
+    expect(r.value).toBe('1元')
+  })
+
+  it('handler 返回 null/空串 -> 处理函数未返回余额', async () => {
+    await expect(
+      fetchBalance({
+        request: { url: `${base}/json` },
+        handler: 'function (raw) { return null }',
+      }),
+    ).rejects.toThrow('处理函数未返回余额')
+    await expect(
+      fetchBalance({
+        request: { url: `${base}/json` },
+        handler: 'function (raw) { return "   " }',
+      }),
+    ).rejects.toThrow('处理函数未返回余额')
   })
 
   it('无任何处理配置 -> 未配置处理函数', async () => {
