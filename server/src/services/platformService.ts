@@ -31,7 +31,7 @@ function pickConfig(body: Record<string, unknown>): Partial<Platform> {
   if (body.name !== undefined) cfg.name = String(body.name).trim()
   if (body.request !== undefined) cfg.request = body.request
   if (body.handler !== undefined) {
-    // 单函数模型: 保存 handler 时清掉旧字段(parse/extractor), 完成迁移
+    // 单函数模型: 保存 handler 时清掉旧字段(parse/extractor), 完成迁移; format 独立保留不清
     cfg.handler = body.handler
     cfg.extractor = ''
     cfg.parse = ''
@@ -39,6 +39,8 @@ function pickConfig(body: Record<string, unknown>): Partial<Platform> {
     if (body.extractor !== undefined) cfg.extractor = body.extractor
     if (body.parse !== undefined) cfg.parse = body.parse
   }
+  // format 显示函数: 空串等同清除
+  if (body.format !== undefined) cfg.format = String(body.format).trim()
   if (body.url !== undefined) cfg.url = String(body.url).trim().slice(0, 500)
   return cfg
 }
@@ -56,6 +58,7 @@ export function normalizePlatform(body: Record<string, unknown>): Platform {
     handler: (body.handler as string) || '',
     extractor: (body.extractor as string) || '',
     parse: (body.parse as string) || '',
+    format: String(body.format ?? '').trim(),
     url: String(body.url ?? '')
       .trim()
       .slice(0, 500),

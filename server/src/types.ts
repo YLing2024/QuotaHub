@@ -2,7 +2,7 @@
 
 export type HttpMethod = 'GET' | 'POST'
 
-// 已弃用: prefix/suffix 拼接机制已废除, 展示改为 handler 直接返回字符串。
+// 已弃用: prefix/suffix 拼接机制已废除, 展示改为 format 渲染函数。
 // 类型定义保留仅为旧导出文件(含 display / response.prefix/suffix)导入兼容,
 // 该字段只留在存储中, 不参与渲染、不再被导出。
 export interface DisplayConfig {
@@ -32,6 +32,9 @@ export interface Platform {
   handler: string
   extractor: string
   parse: string
+  // 显示格式函数: JS 函数源码字符串, 入参 = handler 返回的数值, 返回最终展示字符串。
+  // 后端在 vm 沙箱实时渲染(与 handler 同级安全边界); 空/未配置时卡片回退默认 fmt(value)。
+  format?: string
   response?: LegacyResponse
   // 已弃用: 仅导入兼容保留, 不渲染/不导出
   display?: DisplayConfig
@@ -39,7 +42,7 @@ export interface Platform {
   createdAt: string
 }
 
-// 对外输出的平台(不携带已弃用的 display; response.prefix/suffix 由 toPublic 剔除)
+// 对外输出的平台(不携带已弃用的 display; format 正常带出; response.prefix/suffix 由 toPublic 剔除)
 export type PublicPlatform = Omit<Platform, 'display'>
 
 export interface PresetField {
@@ -73,11 +76,10 @@ export interface Settings {
   collectIntervalSeconds: number
 }
 
-// 历史采样点(与旧 history.json 的 {v,t} 形状保持一致; text 为字符串源平台的展示快照)
+// 历史采样点(纯数值, 与旧 history.json 的 {v,t} 形状保持一致; 展示文本由 format 实时渲染)
 export interface SamplePoint {
   v: number
   t: string
-  text?: string | null
 }
 
 export interface LogEntry {
@@ -96,8 +98,7 @@ export interface LogOptions {
   meta?: Record<string, unknown>
 }
 
-// 面板卡片数据(最新值取自历史采样最新点; value=可绘图最新数值, text=最新展示文本。
-// 纯数字源: 仅 value; 字符串源(可提取数字): value+text 并存; 纯文本/无值: 均 null)
+// 面板卡片数据(最新值取自历史采样最新点; value=最新数值, text=format 渲染结果。无 format/渲染失败 -> text=null)
 export interface BalanceCard {
   id: string
   name: string
@@ -108,7 +109,7 @@ export interface BalanceCard {
   fetchedAt: string | null
 }
 
-// 抓取结果: handler 可返回任意字符串用于展示(纯文本也算成功), 不再只限数字
+// 抓取结果: handler 必须返回有限数字(纯数值语义, 不做字符串展示/提取)
 export interface FetchResult {
-  value: number | string
+  value: number
 }

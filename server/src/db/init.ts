@@ -18,7 +18,7 @@ export function initSchema(db = getDb()): void {
   db.exec(
     'CREATE INDEX IF NOT EXISTS idx_history_platform_time ON history_samples(platform_id, time)',
   )
-  // 老库幂等迁移: history_samples 缺 value_text 列则补齐(仅字符串源平台非 NULL, 展示快照)
+  // 老库幂等迁移: history_samples 缺该列则补齐; 列物理保留供旧数据读取兼容, 新代码不再写入
   const cols = db.prepare('PRAGMA table_info(history_samples)').all() as Array<{ name: string }>
   if (!cols.some((c) => c.name === 'value_text')) {
     db.exec('ALTER TABLE history_samples ADD COLUMN value_text TEXT')

@@ -180,11 +180,26 @@ describe('yDomain', () => {
 })
 
 describe('tickDecimals', () => {
-  it('按步长档位取小数位', () => {
+  it('按步长档位取小数位(支持到 6 位)', () => {
     expect(tickDecimals(1)).toBe(0)
     expect(tickDecimals(5)).toBe(0)
     expect(tickDecimals(0.5)).toBe(1)
     expect(tickDecimals(0.09)).toBe(2)
     expect(tickDecimals(0.01)).toBe(2)
+  })
+  it('更小步长档位: 3/4/5/6 位(赔钱机场 4 位小数数据)', () => {
+    expect(tickDecimals(0.009)).toBe(3)
+    expect(tickDecimals(0.001)).toBe(3)
+    expect(tickDecimals(0.0009)).toBe(4)
+    expect(tickDecimals(0.0001)).toBe(4)
+    expect(tickDecimals(0.00005)).toBe(5)
+    expect(tickDecimals(1e-5)).toBe(5)
+    expect(tickDecimals(1e-6)).toBe(6)
+    expect(tickDecimals(1e-9)).toBe(6)
+  })
+  it('step=0 / 负 / NaN 兜底返回 0', () => {
+    expect(tickDecimals(0)).toBe(0)
+    expect(tickDecimals(-1)).toBe(0)
+    expect(tickDecimals(Number.NaN)).toBe(0)
   })
 })

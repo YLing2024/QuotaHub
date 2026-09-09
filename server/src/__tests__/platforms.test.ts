@@ -58,6 +58,46 @@ describe('platformService 平台 CRUD', () => {
     expect(listed[0]).not.toHaveProperty('display')
   })
 
+  it('normalizePlatform/create 保存 format 字段(trim), toPublic 原样带出', () => {
+    const withFmt = create({
+      ...basePlatform,
+      name: '带格式平台',
+      format: '  function (v) { return v.toFixed(2) + "元" }  ',
+    })
+    // format 经过 trim
+    const stored = platformRepo.getAll().find((p) => p.id === withFmt.id)!
+    expect(stored.format).toBe('function (v) { return v.toFixed(2) + "元" }')
+    const pub = platformService.listPlatforms().find((p) => p.id === withFmt.id)!
+    expect(pub.format).toBe('function (v) { return v.toFixed(2) + "元" }')
+    // 未提供 format -> 空串(不报错)
+    const noFmt = create({ ...basePlatform, name: '无格式平台' })
+    const storedNo = platformRepo.getAll().find((p) => p.id === noFmt.id)!
+    expect(storedNo.format).toBe('')
+  })
+
+  it('updatePlatform 保存 handler 时不清 format; 单独可更新/清空 format', () => {
+    const created = create({
+      ...basePlatform,
+      name: 'Pfmt',
+      format: 'function (v) { return v + "G" }',
+    })
+    // 只改 handler, format 保留
+    const u1 = platformService.updatePlatform(created.id, {
+      handler: 'function (raw) { return JSON.parse(raw).b }',
+    })
+    const stored1 = platformRepo.getAll().find((p) => p.id === created.id)!
+    expect(stored1.format).toBe('function (v) { return v + "G" }')
+    expect(u1.format).toBe('function (v) { return v + "G" }')
+    // 更新 format
+    platformService.updatePlatform(created.id, { format: 'function (v) { return v.toFixed(4) }' })
+    const stored2 = platformRepo.getAll().find((p) => p.id === created.id)!
+    expect(stored2.format).toBe('function (v) { return v.toFixed(4) }')
+    // 空串清空 format
+    platformService.updatePlatform(created.id, { format: '  ' })
+    const stored3 = platformRepo.getAll().find((p) => p.id === created.id)!
+    expect(stored3.format).toBe('')
+  })
+
   it('create 忽略 body.display(不落盘 legacy display); 旧条目 legacy 字段编辑后保留', () => {
     const created = create({ ...basePlatform, display: { prefix: '$', suffix: 'USD' } } as never)
     expect(created).not.toHaveProperty('display')

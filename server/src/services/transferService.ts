@@ -98,6 +98,7 @@ function sanitizePlatform(raw: unknown, fallbackId: string): Platform {
     handler: typeof p.handler === 'string' ? p.handler : '',
     extractor: typeof p.extractor === 'string' ? p.extractor : '',
     parse: typeof p.parse === 'string' ? p.parse : '',
+    format: typeof p.format === 'string' ? p.format : '',
     ...(p.response && typeof p.response === 'object' ? { response: p.response } : {}),
     // 导入兼容: 旧导出文件的 display(含 response.prefix/suffix) 原样接受、写入存储(legacy 保留,
     // 不渲染、不再被导出); 缺失时不生成空 display

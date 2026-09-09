@@ -19,6 +19,7 @@ const platformBodySchema = z
     handler: z.unknown().optional(),
     extractor: z.unknown().optional(),
     parse: z.unknown().optional(),
+    format: z.unknown().optional(),
     display: z.unknown().optional(),
   })
   .loose()

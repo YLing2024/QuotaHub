@@ -40,11 +40,15 @@ describe('historyRepo (SQLite)', () => {
     expect(() => historyRepo.remove('nope')).not.toThrow()
   })
 
-  it('非法值(非有限数字/纯文本)拒写; 缺省时间用当前时间', () => {
+  it('非法值(非有限数字/字符串/纯文本)拒写; 缺省时间用当前时间', () => {
     expect(historyRepo.record('', 5)).toBe(false)
     expect(historyRepo.record('px', Number.NaN)).toBe(false)
-    expect(historyRepo.record('px', 'abc')).toBe(false)
-    expect(historyRepo.record('px', '已过期')).toBe(false)
+    expect(historyRepo.record('px', Number.POSITIVE_INFINITY)).toBe(false)
+    // 字符串一律非 number -> false(纯数值语义, 不再提取)
+    expect(historyRepo.record('px', 'abc' as unknown as number)).toBe(false)
+    expect(historyRepo.record('px', '已过期' as unknown as number)).toBe(false)
+    expect(historyRepo.record('px', '12abc' as unknown as number)).toBe(false)
+    expect(historyRepo.record('px', '92.05G' as unknown as number)).toBe(false)
 
     const ok = historyRepo.record('px', 7) // 不传时间
     expect(ok).toBe(true)
@@ -53,33 +57,16 @@ describe('historyRepo (SQLite)', () => {
     expect(new Date(latest!.t).toString()).not.toBe('Invalid Date')
   })
 
-  it('字符串语义: 可提取数字入库并带展示快照 text; 纯文本不入库', () => {
+  it('纯数值语义: 字符串永不入库/不带 text; number 源点只含 {v,t}', () => {
     const pid = 'pstr'
-    expect(historyRepo.record(pid, '92.05G', '2026-01-02T00:00:00.000Z')).toBe(true)
-    expect(historyRepo.latest(pid)).toEqual({
-      v: 92.05,
-      t: '2026-01-02T00:00:00.000Z',
-      text: '92.05G',
-    })
-    // extractNumeric 语义: '12abc' 剥字母得 12, 入库(较旧"乱字符串不写库"更宽容, 属有意变更)
-    expect(historyRepo.record(pid, '12abc', '2026-01-02T00:00:01.000Z')).toBe(true)
-    expect(historyRepo.latest(pid)).toEqual({
-      v: 12,
-      t: '2026-01-02T00:00:01.000Z',
-      text: '12abc',
-    })
-    // 纯文本 / 纯空白 / 提取不出数字 -> 不入库, 不报错
-    expect(historyRepo.record(pid, '已过期', '2026-01-02T00:00:02.000Z')).toBe(false)
-    expect(historyRepo.record(pid, 'N/A', '2026-01-02T00:00:03.000Z')).toBe(false)
+    // 字符串(即使含可提取数字)一律拒写, 历史保持纯数值
+    expect(historyRepo.record(pid, '92.05G' as unknown as number)).toBe(false)
+    expect(historyRepo.record(pid, '12abc' as unknown as number)).toBe(false)
+    expect(historyRepo.latest(pid)).toBeNull()
     // number 源不带 text
     historyRepo.record(pid, 5, '2026-01-02T00:00:04.000Z')
     expect(historyRepo.latest(pid)).toEqual({ v: 5, t: '2026-01-02T00:00:04.000Z' })
-    // get() 同样按行返回 text 快照
-    expect(historyRepo.get(pid)).toEqual([
-      { v: 92.05, t: '2026-01-02T00:00:00.000Z', text: '92.05G' },
-      { v: 12, t: '2026-01-02T00:00:01.000Z', text: '12abc' },
-      { v: 5, t: '2026-01-02T00:00:04.000Z' },
-    ])
+    expect(historyRepo.get(pid)).toEqual([{ v: 5, t: '2026-01-02T00:00:04.000Z' }])
   })
 
   it('每平台最多保留 2000 点 (裁掉最旧)', async () => {

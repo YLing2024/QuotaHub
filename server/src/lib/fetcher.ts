@@ -2,7 +2,6 @@ import vm from 'node:vm'
 import net from 'node:net'
 import dns from 'node:dns/promises'
 import { config } from '../config.js'
-import { extractNumeric } from './value.js'
 import type { PlatformRequest } from '../types.js'
 
 // 平台余额抓取 + 沙箱执行 (等价迁移自 src/fetcher.js)
@@ -242,6 +241,25 @@ export function runParse(raw: unknown, src: unknown): unknown {
   }
 }
 
+// 显示格式函数(format): 平台配置的展示 JS, 入参 v = handler 返回的数值, 返回最终展示字符串。
+// 与 runParse 同款沙箱(vm realm 隔离, 无宿主对象注入, 有超时); 抛错/超时由调用方兜底为 text=null。
+export function runFormat(src: string, v: number): unknown {
+  const code = String(src ?? '').trim()
+  if (!code) throw new Error('未配置显示格式函数')
+  const sandbox = Object.create(null) as Record<string, unknown>
+  vm.createContext(sandbox)
+  try {
+    return vm.runInNewContext(`(${code})(${JSON.stringify(v)})`, sandbox, {
+      timeout: EXTRACT_TIMEOUT_MS,
+    })
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === 'ERR_SCRIPT_EXECUTION_TIMEOUT') {
+      throw new Error(`显示格式函数执行超时 (${EXTRACT_TIMEOUT_MS}ms)`, { cause: e })
+    }
+    throw new Error(`显示格式函数执行失败: ${(e as Error).message}`, { cause: e })
+  }
+}
+
 export function runExtractor(src: unknown, data: unknown): unknown {
   const code = String(src ?? '').trim()
   if (!code) throw new Error('未配置提取函数')
@@ -290,7 +308,7 @@ export interface FetchTarget {
   response?: { path?: string; divider?: number | string; prefix?: string; suffix?: string }
 }
 
-export async function fetchBalance(platform: FetchTarget): Promise<{ value: number | string }> {
+export async function fetchBalance(platform: FetchTarget): Promise<{ value: number }> {
   const request = platform.request as PlatformRequest | undefined
   if (!request || !request.url) {
     throw new Error('未配置请求 URL')
@@ -362,16 +380,15 @@ export async function fetchBalance(platform: FetchTarget): Promise<{ value: numb
       data = evalJsResponse(text)
     }
     value = resolvePath(data, platform.response.path)
-    if (value !== undefined && Number(platform.response.divider)) {
-      const n = extractNumeric(value)
-      value = n !== null ? n / Number(platform.response.divider) : value
+    if (value !== undefined && Number(platform.response.divider) && typeof value === 'number') {
+      value = value / Number(platform.response.divider)
     }
   } else {
     throw new Error('未配置处理函数')
   }
+  // 纯数值语义: handler 必须返回有限数字; null/undefined 视为未返回, 字符串等非数字属配置错误
   if (value === undefined || value === null) throw new Error('处理函数未返回余额')
+  if (typeof value === 'number' && Number.isFinite(value)) return { value }
   if (typeof value === 'string' && !value.trim()) throw new Error('处理函数未返回余额')
-  if (typeof value !== 'number' && typeof value !== 'string') throw new Error('处理函数未返回余额')
-
-  return { value }
+  throw new Error(`处理函数必须返回数字(当前返回 ${typeof value === 'string' ? 'string' : typeof value})`)
 }
