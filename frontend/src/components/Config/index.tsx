@@ -24,9 +24,6 @@ import TransferModal, { type TransferRequest } from '@/components/Transfer/Trans
 
 const DEFAULT_HEADERS = '{\n  "Authorization": "Bearer 你的密钥"\n}'
 
-// 显示格式函数默认模板: 与内置自动格式化等价(整数原样 / 非整数两位小数)。留空 = 自动格式化
-const DEFAULT_FORMAT = 'function (v) {\n  return v % 1 === 0 ? String(v) : v.toFixed(2)\n}'
-
 interface FormState {
   name: string
   homepage: string
@@ -46,7 +43,7 @@ const EMPTY_FORM: FormState = {
   url: '',
   headersText: DEFAULT_HEADERS,
   handlerText: DEFAULT_HANDLER,
-  formatText: DEFAULT_FORMAT,
+  formatText: '',
 }
 
 function fillFormState(p: Platform): FormState {
@@ -61,7 +58,7 @@ function fillFormState(p: Platform): FormState {
         ? JSON.stringify(p.request.body)
         : '',
     handlerText: resolveHandler(p),
-    formatText: p.format || DEFAULT_FORMAT,
+    formatText: p.format || '',
   }
 }
 
@@ -120,6 +117,10 @@ export default function ConfigTab() {
 
   const save = async () => {
     notify('')
+    if (!form.formatText.trim()) {
+      notify('请填写显示格式函数', true)
+      return
+    }
     let payload: ReturnType<typeof readPayload>
     try {
       payload = readPayload(form)
@@ -536,17 +537,18 @@ export default function ConfigTab() {
           <div className="form__row">
             <div className="field field--wide">
               <label className="field__label">
-                显示格式函数（可选，入参 v 为处理函数返回的数值，返回最终展示字符串）
+                显示格式函数（必填，入参 v 为处理函数返回的数值，返回最终展示字符串）
               </label>
               <CodeEditor
                 value={form.formatText}
                 mode="js"
+                placeholder="function (v) { return v.toLocaleString('zh-CN') }"
                 onChange={(v) => patchForm({ formatText: v })}
                 onModEnter={() => void validate()}
               />
               <span className="field__label field__label--hint">
-                为空时按默认数字格式显示（整数原样、小数两位）。示例：v.toFixed(4) + 'G' 表示流量保留
-                4 位小数并带 G 单位；返回非字符串 / 抛错时自动回退默认格式
+                示例：v.toFixed(4) + 'G'（流量）、'¥' + v.toFixed(2) + '元'、v.toLocaleString('zh-CN')
+                （千分位）；函数返回非字符串或抛错时卡片回退显示原始数值
               </span>
             </div>
           </div>

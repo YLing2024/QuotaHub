@@ -25,6 +25,8 @@ function BalanceCardView({
   ) : (
     <span className="card__platform">{p.name}</span>
   )
+  // 正常路径所有平台都应有 format: 以 format(value) 为唯一展示路径。
+  // p.format 为空或执行失败(返回非字符串/抛错)时回退 fmt(p.value) —— 仅容错, 不再作为推荐形态
   const text = p.value != null && p.format ? runFormatOnClient(p.format, p.value) : null
   const isEmpty = p.value == null && text == null
   const balanceText = text ?? (p.value != null ? fmt(p.value) : '—')
