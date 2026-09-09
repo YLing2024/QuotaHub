@@ -13,10 +13,11 @@ interface Props {
   onChange?(value: string): void
   mode?: 'js' | 'json'
   readOnly?: boolean
+  placeholder?: string
   onModEnter?: () => void
 }
 
-export default function CodeEditor({ value, onChange, mode = 'json', readOnly, onModEnter }: Props) {
+export default function CodeEditor({ value, onChange, mode = 'json', readOnly, placeholder, onModEnter }: Props) {
   const extensions = useMemo(() => {
     const list: Extension[] = [mode === 'json' ? json() : javascript()]
     if (onModEnter && !readOnly) {
@@ -43,6 +44,7 @@ export default function CodeEditor({ value, onChange, mode = 'json', readOnly, o
       value={value}
       height="auto"
       className={readOnly ? 'cm-readonly' : undefined}
+      placeholder={placeholder}
       extensions={extensions}
       editable={!readOnly}
       basicSetup={{
