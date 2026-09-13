@@ -1004,6 +1004,115 @@ a.card__platform:hover {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* 时间范围档位: 直角分段控件(发丝线分隔, 选中态琥珀下边线) */
+.chart-range {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.chart-range__btn {
+  padding: 6px 10px;
+  border: none;
+  border-right: 1px solid var(--line-soft);
+  background: none;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 0.14s var(--ease), background-color 0.14s var(--ease);
+}
+
+.chart-range__btn:last-child {
+  border-right: none;
+}
+
+.chart-range__btn:hover:not(:disabled) {
+  color: var(--fg);
+}
+
+.chart-range__btn.is-active {
+  color: var(--accent-ink);
+  background: var(--accent-soft);
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.chart-range__btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* 自定义区间: 起止时间输入行(仅选中"自定义"档时出现) */
+.chart-custom {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.chart-custom__field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chart-custom__label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.chart-custom__input {
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  outline: none;
+  transition: border-color 0.14s var(--ease);
+}
+
+.chart-custom__input:hover,
+.chart-custom__input:focus {
+  border-color: var(--accent-border);
+}
+
+.chart-custom__apply {
+  align-self: center;
+  height: 30px;
+  padding: 0 14px;
+  font-size: 12px;
+}
+
+.chart-custom__msg {
+  font-size: 11.5px;
+  color: var(--danger);
+}
+
+@media (max-width: 640px) {
+  .chart-range {
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .chart-range__btn {
+    flex: 1 0 auto;
+    padding: 8px;
+    font-size: 10.5px;
+    text-align: center;
+  }
 }
 
 /* 统计文字: 与工具栏对齐(右推) */
