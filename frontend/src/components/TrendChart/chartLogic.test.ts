@@ -10,7 +10,6 @@ import {
   SPARSE_DX,
   filterPointsByWindow,
   minWindowMs,
-  minusOneMonth,
   parseLocalInputValue,
   presetWindow,
   previewHitMode,
@@ -223,6 +222,7 @@ describe('clampWindow', () => {
 })
 
 describe('presetWindow 档位窗口', () => {
+  const HOUR = 3_600_000
   const DAY = 86_400_000
   const now = Date.UTC(2026, 8, 13, 12, 0)
   const t0 = now - 40 * DAY // 数据起点 40 天前
@@ -232,12 +232,16 @@ describe('presetWindow 档位窗口', () => {
     expect(presetWindow('all', t0, t1, now)).toEqual({ start: t0, end: t1 })
   })
 
-  it('d30: 取近 30 天, 右端夹到数据末端', () => {
-    expect(presetWindow('d30', t0, t1, now)).toEqual({ start: now - 30 * DAY, end: t1 })
+  it('h24: 取近 24 小时, 右端夹到数据末端', () => {
+    expect(presetWindow('h24', t0, t1, now)).toEqual({ start: now - 24 * HOUR, end: t1 })
   })
 
-  it('month: 起点为日历月回退, 右端夹到数据末端', () => {
-    expect(presetWindow('month', t0, t1, now)).toEqual({ start: minusOneMonth(now), end: t1 })
+  it('d7: 取近 7 天, 右端夹到数据末端', () => {
+    expect(presetWindow('d7', t0, t1, now)).toEqual({ start: now - 7 * DAY, end: t1 })
+  })
+
+  it('d30: 取近 30 天, 右端夹到数据末端', () => {
+    expect(presetWindow('d30', t0, t1, now)).toEqual({ start: now - 30 * DAY, end: t1 })
   })
 
   it('year: 数据不足一年时退化为全长', () => {
@@ -252,19 +256,6 @@ describe('presetWindow 档位窗口', () => {
 
   it('custom 不参与档位解析(按全量返回, 实际窗口由输入框驱动)', () => {
     expect(presetWindow('custom', t0, t1, now)).toEqual({ start: t0, end: t1 })
-  })
-})
-
-describe('minusOneMonth', () => {
-  it('普通日期按日历月回退(UTC 视角)', () => {
-    expect(new Date(minusOneMonth(Date.UTC(2026, 8, 13, 12, 0))).getUTCMonth()).toBe(7)
-  })
-
-  it('月末溢出取上月最后一天: 3/31 → 2/28(2026 非闰年)', () => {
-    const d = new Date(minusOneMonth(new Date(2026, 2, 31, 10, 0).getTime()))
-    expect(d.getMonth()).toBe(1)
-    expect(d.getDate()).toBe(28)
-    expect(d.getHours()).toBe(10)
   })
 })
 

@@ -142,25 +142,15 @@ export function tickDecimals(step: number): number {
 
 // ---------- 时间范围档位(工具栏预设) ----------
 
-export type RangePreset = 'all' | 'month' | 'd30' | 'year' | 'custom'
+export type RangePreset = 'h24' | 'd7' | 'd30' | 'year' | 'all' | 'custom'
 
 export interface TimeWindow {
   start: number
   end: number
 }
 
+const HOUR_MS = 3_600_000
 const DAY_MS = 86_400_000
-
-// 一个月前(按日历月回退, 月末溢出取当月最后一天: 3/31 → 2/28)
-export function minusOneMonth(ms: number): number {
-  const d = new Date(ms)
-  const day = d.getDate()
-  d.setDate(1)
-  d.setMonth(d.getMonth() - 1)
-  const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
-  d.setDate(Math.min(day, lastDay))
-  return d.getTime()
-}
 
 // 窗口两端夹紧进数据域 [t0, t1]; 请求区间完全落在域外时可能倒挂(start > end),
 // 由调用方决定兜底语义(预设回退全量 / 自定义提示无数据)
@@ -180,8 +170,11 @@ export function presetWindow(
 ): TimeWindow {
   let raw: TimeWindow
   switch (preset) {
-    case 'month':
-      raw = { start: minusOneMonth(now), end: now }
+    case 'h24':
+      raw = { start: now - 24 * HOUR_MS, end: now }
+      break
+    case 'd7':
+      raw = { start: now - 7 * DAY_MS, end: now }
       break
     case 'd30':
       raw = { start: now - 30 * DAY_MS, end: now }
