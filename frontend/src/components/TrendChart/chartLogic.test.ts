@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildPreviewGeo,
+  buildRangeGeo,
   clampLeftEdge,
   clampPanStart,
   clampRightEdge,
@@ -55,6 +56,32 @@ describe('buildPreviewGeo', () => {
     const p = pts(1)
     const geo = buildPreviewGeo(p, 600)!
     expect(geo.span).toBe(1)
+  })
+})
+
+describe('buildRangeGeo 区间几何', () => {
+  it('cssW<=0 返回 null', () => {
+    expect(buildRangeGeo(0, 100, 0)).toBeNull()
+  })
+
+  it('t0/t1 = 给定区间, 两端对齐 padX', () => {
+    const geo = buildRangeGeo(1000, 2000, 612)!
+    expect(geo.t0).toBe(1000)
+    expect(geo.t1).toBe(2000)
+    expect(geo.xOfTs(1000)).toBeCloseTo(6)
+    expect(geo.xOfTs(2000)).toBeCloseTo(606)
+  })
+
+  it('区间外时间映射到画布外(不夹紧), tsOfX 仍夹紧在两端', () => {
+    const geo = buildRangeGeo(1000, 2000, 600)!
+    expect(geo.xOfTs(500)).toBeLessThan(6)
+    expect(geo.xOfTs(2500)).toBeGreaterThan(594)
+    expect(geo.tsOfX(-100)).toBe(1000)
+    expect(geo.tsOfX(9999)).toBe(2000)
+  })
+
+  it('零跨度退化为 span=1', () => {
+    expect(buildRangeGeo(1000, 1000, 600)!.span).toBe(1)
   })
 })
 
