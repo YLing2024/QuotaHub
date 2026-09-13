@@ -34,14 +34,18 @@ import {
 // 触摸拖动判定阈值(px): 位移未超过视为"查看信息"(十字线跟随), 超过转为平移
 const TOUCH_PAN_THRESHOLD = 6
 
-// 工具栏时间范围档位(所有/最近一个月/最近30天/最近一年/自定义)
+// 工具栏时间范围档位(24小时/7天/30天/一年/所有/自定义)
 const RANGE_PRESETS: Array<{ key: RangePreset; label: string }> = [
+  { key: 'h24', label: '24小时' },
+  { key: 'd7', label: '7天' },
+  { key: 'd30', label: '30天' },
+  { key: 'year', label: '一年' },
   { key: 'all', label: '所有' },
-  { key: 'month', label: '最近一个月' },
-  { key: 'd30', label: '最近30天' },
-  { key: 'year', label: '最近一年' },
   { key: 'custom', label: '自定义' },
 ]
+
+// 打开弹窗的默认档位
+const DEFAULT_PRESET: RangePreset = 'd30'
 // 画布字体: 跟随 Swiss 设计系统(latin 子集自托管, CJK 回退系统栈)
 const FONT_STACK = '"Inter", -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Helvetica Neue", sans-serif'
 const MONO_STACK = '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace'
@@ -109,7 +113,7 @@ export default function TrendChartModal({ id, name, onClose }: Props) {
   const statsRef = useRef<HTMLSpanElement>(null)
 
   // ---- 时间范围档位(React 层) ----
-  const [preset, setPreset] = useState<RangePreset>('all')
+  const [preset, setPreset] = useState<RangePreset>(DEFAULT_PRESET)
   // 数据域(全量采样点的时间跨度), 供档位计算与自定义输入上下限
   const [domain, setDomain] = useState<TimeWindow | null>(null)
   const [customStart, setCustomStart] = useState('')
@@ -771,14 +775,18 @@ export default function TrendChartModal({ id, name, onClose }: Props) {
         const times = points.map((p) => new Date(p.t).getTime())
         const t0 = times.length ? Math.min(...times) : 0
         const t1 = times.length ? Math.max(...times) : 0
-        winStart = t0
-        winEnd = t1
-        // 打开弹窗复位为"所有"档; 数据域交给 React 层(档位按钮可用性 + 自定义输入上下限)
+        // 打开弹窗默认落在默认档(数据不足该跨度时自动退化为全长);
+        // 数据域交给 React 层(档位按钮可用性 + 自定义输入上下限)
+        const win = times.length
+          ? presetWindow(DEFAULT_PRESET, t0, t1, Date.now())
+          : { start: 0, end: 0 }
+        winStart = win.start
+        winEnd = win.end
         setDomain(times.length ? { start: t0, end: t1 } : null)
-        setPreset('all')
+        setPreset(DEFAULT_PRESET)
         setCustomError('')
-        setCustomStart(times.length ? toLocalInputValue(t0) : '')
-        setCustomEnd(times.length ? toLocalInputValue(t1) : '')
+        setCustomStart(times.length ? toLocalInputValue(win.start) : '')
+        setCustomEnd(times.length ? toLocalInputValue(win.end) : '')
         // 弹窗可见后 canvas 才有尺寸, 重绘一次
         requestAnimationFrame(() => drawChart())
       } catch (err) {
@@ -786,7 +794,7 @@ export default function TrendChartModal({ id, name, onClose }: Props) {
         winStart = 0
         winEnd = 0
         setDomain(null)
-        setPreset('all')
+        setPreset(DEFAULT_PRESET)
         setCustomError('')
         setCustomStart('')
         setCustomEnd('')
