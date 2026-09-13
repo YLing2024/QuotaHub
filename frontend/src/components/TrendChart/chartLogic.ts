@@ -17,26 +17,30 @@ export interface PreviewGeo {
   tsOfX(px: number): number
 }
 
-// 全量时间轴几何映射(像素 <-> ms), 供预览绘制与拖拽共用
-export function buildPreviewGeo(points: SamplePoint[], cssW: number): PreviewGeo | null {
-  if (!points.length || cssW <= 0) return null
-  const times = points.map((p) => new Date(p.t).getTime())
-  const t0 = Math.min(...times)
-  const t1 = Math.max(...times)
+// 指定时间轴范围的几何映射: 预览条 100% 即 [start, end] 这段区间
+export function buildRangeGeo(start: number, end: number, cssW: number): PreviewGeo | null {
+  if (cssW <= 0) return null
   const padX = 6
   const innerW = Math.max(1, cssW - padX * 2)
-  const span = Math.max(1, t1 - t0)
+  const span = Math.max(1, end - start)
   return {
-    t0,
-    t1,
+    t0: start,
+    t1: end,
     span,
     padX,
     innerW,
     cssW,
-    xOfTs: (ts) => padX + ((ts - t0) / span) * innerW,
+    xOfTs: (ts) => padX + ((ts - start) / span) * innerW,
     tsOfX: (px) =>
-      t0 + ((Math.min(Math.max(px, padX), cssW - padX) - padX) / innerW) * span,
+      start + ((Math.min(Math.max(px, padX), cssW - padX) - padX) / innerW) * span,
   }
+}
+
+// 全量时间轴几何映射(像素 <-> ms), 供预览绘制与拖拽共用
+export function buildPreviewGeo(points: SamplePoint[], cssW: number): PreviewGeo | null {
+  if (!points.length || cssW <= 0) return null
+  const times = points.map((p) => new Date(p.t).getTime())
+  return buildRangeGeo(Math.min(...times), Math.max(...times), cssW)
 }
 
 // 最小窗口宽度: 2 个采样点间隔 与 总宽 2% 取较小约束

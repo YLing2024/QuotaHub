@@ -1,5 +1,6 @@
 // 余额趋势图弹窗 —— canvas 手绘折线图, 完整移植旧 app.js 全部交互:
-// - 时间预览条窗口选择(拖两端调范围/拖内部平移/夹紧[t0,t1]/最小窗口约束)
+// - 工具栏时间范围档位(24小时/7天/30天/一年/所有/自定义): 切换时预览条与主图整条换到该区间
+// - 时间预览条: 时间轴 = 当前档位区间(100% 即该区间), 拖两端在区间内收窄/拖内部平移
 // - 主图 hover 十字线 + tooltip(值+时间)
 // - 主图拖动平移联动预览条
 // - 触屏移动端(Pointer Events 统一鼠标/触摸/笔)
@@ -11,7 +12,7 @@ import { getHistory } from '@/api/endpoints'
 import { fmtAuto } from '@/lib/format'
 import type { SamplePoint } from '@/types'
 import {
-  buildPreviewGeo,
+  buildRangeGeo,
   clampLeftEdge,
   clampPanStart,
   clampRightEdge,
@@ -120,20 +121,11 @@ export default function TrendChartModal({ id, name, onClose }: Props) {
   const [customEnd, setCustomEnd] = useState('')
   const [customError, setCustomError] = useState('')
 
-  // 图表闭包态(绘制/拖拽)暴露的命令: 应用窗口 / 读取当前窗口
+  // 图表闭包态(绘制/拖拽)暴露的命令: 应用区间 / 读取当前窗口
   const chartApiRef = useRef<{
     applyWindow(start: number, end: number): void
     getWindow(): TimeWindow
   } | null>(null)
-
-  // 拖动预览条或主图平移后, 由图表闭包回调到 React 层(切到自定义档 + 回填输入框)
-  const onWindowChangeRef = useRef<((win: TimeWindow) => void) | null>(null)
-  onWindowChangeRef.current = (win) => {
-    setPreset('custom')
-    setCustomStart(toLocalInputValue(win.start))
-    setCustomEnd(toLocalInputValue(win.end))
-    setCustomError('')
-  }
 
   // 弹窗打开期间锁定 body 滚动，关闭/卸载时恢复
   useEffect(() => {
@@ -149,9 +141,13 @@ export default function TrendChartModal({ id, name, onClose }: Props) {
 
     // ---- 可变交互态(与旧实现一致, 存于闭包避免 React 重渲染打断拖拽) ----
     let points: SamplePoint[] = []
-    // 预览条窗口边界(全量时间轴上的 ms 时间戳), 打开弹窗时默认全选
+    // 主图窗口边界(ms 时间戳) —— 即预览条上被选中的那一段
     let winStart = 0
     let winEnd = 0
+    // 预览条自身的时间轴范围(当前档位选定的区间): 预览条 100% 覆盖的就是它,
+    // 切档位时整条一起换(不再固定显示全量历史)
+    let rngStart = 0
+    let rngEnd = 0
     // 主图 hover: 十字线所在 x(css 像素), null = 不显示
     let hoverX: number | null = null
     // 主图最近一次渲染的几何视图, hover 命中与拖拽判定共用
@@ -163,8 +159,10 @@ export default function TrendChartModal({ id, name, onClose }: Props) {
     let docCleanup: (() => void) | null = null
 
     // 供 React 层(档位按钮/自定义输入)驱动的命令接口:
-    // 应用窗口 = 设置闭包态窗口 + 重绘主图/预览条
+    // 应用区间 = 预览条时间轴与主图窗口一起换成该区间(预览条 100% 即此区间) + 重绘
     const applyWindow = (start: number, end: number) => {
+      rngStart = start
+      rngEnd = end
       winStart = start
       winEnd = end
       hoverX = null
@@ -173,11 +171,6 @@ export default function TrendChartModal({ id, name, onClose }: Props) {
     chartApiRef.current = {
       applyWindow,
       getWindow: () => ({ start: winStart, end: winEnd }),
-    }
-
-    // 拖拽结束(预览条窗口 / 主图平移)后回传窗口, 让 React 层切到"自定义"档并回填输入框
-    const notifyWindow = () => {
-      onWindowChangeRef.current?.({ start: winStart, end: winEnd })
     }
 
     const scheduleRenderCharts = () => {
@@ -514,7 +507,8 @@ export default function TrendChartModal({ id, name, onClose }: Props) {
       stats.textContent = `${pts.length} 个采样点 · ${arrow} ${diff >= 0 ? '+' : ''}${fmtAuto(diff)} (${diffPct >= 0 ? '+' : ''}${fmtAuto(diffPct)}%)`
     }
 
-    // 预览条: 全量历史迷你折线 + 窗口遮罩(未选中灰化 / 选中高亮 + 边缘手柄)
+    // 预览条: 当前区间(档位选定的时间范围)迷你折线 + 区间内窗口选择
+    // 预览条自身的时间轴 = 选定区间(100% 即该区间), 未选中段灰化 / 选中段琥珀 + 边缘手柄
     function drawChartPreview() {
       const ctx = preview.getContext('2d')
       if (!ctx) return
@@ -526,8 +520,9 @@ export default function TrendChartModal({ id, name, onClose }: Props) {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
       ctx.clearRect(0, 0, cssW, cssH)
 
-      const geo = buildPreviewGeo(points, cssW)
-      if (!geo) {
+      const rangePts = filterPointsByWindow(points, rngStart, rngEnd)
+      const geo = buildRangeGeo(rngStart, rngEnd, cssW)
+      if (!geo || !rangePts.length) {
         ctx.fillStyle = TEXT_DIM()
         ctx.font = `12px ${FONT_STACK}`
         ctx.textAlign = 'center'
@@ -536,8 +531,8 @@ export default function TrendChartModal({ id, name, onClose }: Props) {
         return
       }
 
-      const times = points.map((p) => new Date(p.t).getTime())
-      const values = points.map((p) => p.v)
+      const times = rangePts.map((p) => new Date(p.t).getTime())
+      const values = rangePts.map((p) => p.v)
       let vmin = Math.min(...values)
       let vmax = Math.max(...values)
       if (vmin === vmax) {
@@ -553,7 +548,7 @@ export default function TrendChartModal({ id, name, onClose }: Props) {
         ctx.lineJoin = 'round'
         ctx.lineCap = 'round'
         ctx.beginPath()
-        points.forEach((p, i) => {
+        rangePts.forEach((p, i) => {
           const px = geo.xOfTs(times[i])
           const py = yOfV(p.v)
           if (i === 0) ctx.moveTo(px, py)
@@ -566,8 +561,9 @@ export default function TrendChartModal({ id, name, onClose }: Props) {
       const xe = geo.xOfTs(winEnd)
 
       // 未选中区域灰化: 半透明遮罩 + 该段折线重描为灰; 选中段保持琥珀
-      const hasLeft = xs > 0
-      const hasRight = xe < cssW
+      // 窗口 = 整个区间(刚切档位)时两端都不灰化 → 预览条 100% 高亮
+      const hasLeft = winStart > geo.t0
+      const hasRight = winEnd < geo.t1
       ctx.fillStyle = OVERLAY_MASK()
       if (hasLeft) ctx.fillRect(0, 0, xs, cssH)
       if (hasRight) ctx.fillRect(xe, 0, cssW - xe, cssH)
@@ -620,13 +616,15 @@ export default function TrendChartModal({ id, name, onClose }: Props) {
 
     const onPreviewPointerDown = (e: PointerEvent) => {
       if (e.isPrimary === false) return
-      const geo = buildPreviewGeo(points, preview.clientWidth || 600)
-      if (!geo || points.length < 2) return
+      const rangePts = filterPointsByWindow(points, rngStart, rngEnd)
+      const geo = buildRangeGeo(rngStart, rngEnd, preview.clientWidth || 600)
+      if (!geo || rangePts.length < 2) return
       const px = e.clientX - previewRectLeft()
       const mode = previewHitMode(px, geo.xOfTs(winStart), geo.xOfTs(winEnd))
       if (!mode) return
       e.preventDefault()
-      previewDrag = { mode, lastTs: null, minWin: minWindowMs(points.length, geo.span) }
+      // 最小窗口与区间内采样点间隔挂钩(保证窗口内至少 2 个采样点)
+      previewDrag = { mode, lastTs: null, minWin: minWindowMs(rangePts.length, geo.span) }
       beginDocDrag(
         (ev) => {
           applyPreviewDrag(ev.clientX - previewRectLeft(), geo)
@@ -635,7 +633,6 @@ export default function TrendChartModal({ id, name, onClose }: Props) {
         () => {
           previewDrag = null
           drawChart()
-          notifyWindow()
         },
         e.pointerId,
       )
@@ -644,7 +641,7 @@ export default function TrendChartModal({ id, name, onClose }: Props) {
     // hover 反馈: 光标形态 + 手柄变色
     const onPreviewMouseMove = (e: MouseEvent) => {
       if (previewDrag) return
-      const geo = buildPreviewGeo(points, preview.clientWidth || 600)
+      const geo = buildRangeGeo(rngStart, rngEnd, preview.clientWidth || 600)
       if (!geo) return
       const px = e.clientX - previewRectLeft()
       const hit = previewHitMode(px, geo.xOfTs(winStart), geo.xOfTs(winEnd))
@@ -698,7 +695,8 @@ export default function TrendChartModal({ id, name, onClose }: Props) {
       const py = e.clientY - canvas.getBoundingClientRect().top
       // 只在绘图区内起拖
       if (!v.inPlotX(px) || py < v.pad.t || py > v.pad.t + v.h) return
-      const geo = buildPreviewGeo(points, preview.clientWidth || 600)
+      // 平移夹紧基准 = 预览条当前区间(档位选定的范围), 主图拖动不会越出该区间
+      const geo = buildRangeGeo(rngStart, rngEnd, preview.clientWidth || 600)
       if (!geo) return
       e.preventDefault()
       const winW0 = winEnd - winStart
@@ -749,7 +747,6 @@ export default function TrendChartModal({ id, name, onClose }: Props) {
           hoverX = null
           canvas.style.cursor = 'default'
           drawChart()
-          notifyWindow()
         },
         e.pointerId,
       )
@@ -782,6 +779,8 @@ export default function TrendChartModal({ id, name, onClose }: Props) {
           : { start: 0, end: 0 }
         winStart = win.start
         winEnd = win.end
+        rngStart = win.start
+        rngEnd = win.end
         setDomain(times.length ? { start: t0, end: t1 } : null)
         setPreset(DEFAULT_PRESET)
         setCustomError('')
@@ -793,6 +792,8 @@ export default function TrendChartModal({ id, name, onClose }: Props) {
         points = []
         winStart = 0
         winEnd = 0
+        rngStart = 0
+        rngEnd = 0
         setDomain(null)
         setPreset(DEFAULT_PRESET)
         setCustomError('')
@@ -822,9 +823,10 @@ export default function TrendChartModal({ id, name, onClose }: Props) {
   const selectPreset = (key: RangePreset) => {
     if (!domain) return
     if (key === 'custom') {
-      // 切到自定义档: 保留当前窗口并回填输入框, 由用户微调后点"应用"
+      // 自定义档: 以当前窗口为准(预览条整条切到该窗口), 输入框回填供微调
       const win = chartApiRef.current?.getWindow()
       if (win) {
+        chartApiRef.current?.applyWindow(win.start, win.end)
         setCustomStart(toLocalInputValue(win.start))
         setCustomEnd(toLocalInputValue(win.end))
       }
