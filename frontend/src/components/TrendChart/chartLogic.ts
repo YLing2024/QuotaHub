@@ -139,3 +139,74 @@ export function tickDecimals(step: number): number {
   if (step >= 0.00001) return 5
   return 6
 }
+
+// ---------- 时间范围档位(工具栏预设) ----------
+
+export type RangePreset = 'all' | 'month' | 'd30' | 'year' | 'custom'
+
+export interface TimeWindow {
+  start: number
+  end: number
+}
+
+const DAY_MS = 86_400_000
+
+// 一个月前(按日历月回退, 月末溢出取当月最后一天: 3/31 → 2/28)
+export function minusOneMonth(ms: number): number {
+  const d = new Date(ms)
+  const day = d.getDate()
+  d.setDate(1)
+  d.setMonth(d.getMonth() - 1)
+  const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
+  d.setDate(Math.min(day, lastDay))
+  return d.getTime()
+}
+
+// 窗口两端夹紧进数据域 [t0, t1]; 请求区间完全落在域外时可能倒挂(start > end),
+// 由调用方决定兜底语义(预设回退全量 / 自定义提示无数据)
+export function clampWindow(win: TimeWindow, t0: number, t1: number): TimeWindow {
+  return {
+    start: Math.min(Math.max(win.start, t0), t1),
+    end: Math.min(Math.max(win.end, t0), t1),
+  }
+}
+
+// 预设档位 → 夹紧后的窗口: 起点早于数据起始则退化为全长; 与数据域无交集时回退全量
+export function presetWindow(
+  preset: RangePreset,
+  t0: number,
+  t1: number,
+  now: number,
+): TimeWindow {
+  let raw: TimeWindow
+  switch (preset) {
+    case 'month':
+      raw = { start: minusOneMonth(now), end: now }
+      break
+    case 'd30':
+      raw = { start: now - 30 * DAY_MS, end: now }
+      break
+    case 'year':
+      raw = { start: now - 365 * DAY_MS, end: now }
+      break
+    default:
+      raw = { start: t0, end: t1 }
+  }
+  const win = clampWindow(raw, t0, t1)
+  if (win.end <= win.start) return { start: t0, end: t1 }
+  return win
+}
+
+// ms → <input type="datetime-local"> 值(本地时区, 精确到分钟)
+export function toLocalInputValue(ms: number): string {
+  const d = new Date(ms)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+// <input type="datetime-local"> 值 → ms(按本地时区解析); 空/非法返回 null
+export function parseLocalInputValue(value: string): number | null {
+  if (!value) return null
+  const ms = new Date(value).getTime()
+  return Number.isFinite(ms) ? ms : null
+}

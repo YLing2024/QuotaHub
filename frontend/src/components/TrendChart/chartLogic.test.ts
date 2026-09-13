@@ -4,13 +4,18 @@ import {
   clampLeftEdge,
   clampPanStart,
   clampRightEdge,
+  clampWindow,
   densityT,
   DENSE_DX,
   SPARSE_DX,
   filterPointsByWindow,
   minWindowMs,
+  minusOneMonth,
+  parseLocalInputValue,
+  presetWindow,
   previewHitMode,
   tickDecimals,
+  toLocalInputValue,
   yDomain,
   type SamplePoint,
 } from './chartLogic'
@@ -201,5 +206,80 @@ describe('tickDecimals', () => {
     expect(tickDecimals(0)).toBe(0)
     expect(tickDecimals(-1)).toBe(0)
     expect(tickDecimals(Number.NaN)).toBe(0)
+  })
+})
+
+describe('clampWindow', () => {
+  it('两端夹紧进数据域', () => {
+    expect(clampWindow({ start: -100, end: 5000 }, 0, 1000)).toEqual({ start: 0, end: 1000 })
+  })
+  it('域内区间原样返回', () => {
+    expect(clampWindow({ start: 200, end: 800 }, 0, 1000)).toEqual({ start: 200, end: 800 })
+  })
+  it('完全落在域外的区间塌缩(交由调用方判"无数据")', () => {
+    expect(clampWindow({ start: 2000, end: 3000 }, 0, 1000)).toEqual({ start: 1000, end: 1000 })
+    expect(clampWindow({ start: -3000, end: -2000 }, 0, 1000)).toEqual({ start: 0, end: 0 })
+  })
+})
+
+describe('presetWindow 档位窗口', () => {
+  const DAY = 86_400_000
+  const now = Date.UTC(2026, 8, 13, 12, 0)
+  const t0 = now - 40 * DAY // 数据起点 40 天前
+  const t1 = now - 60_000 // 数据终点 1 分钟前
+
+  it('all: 全量域', () => {
+    expect(presetWindow('all', t0, t1, now)).toEqual({ start: t0, end: t1 })
+  })
+
+  it('d30: 取近 30 天, 右端夹到数据末端', () => {
+    expect(presetWindow('d30', t0, t1, now)).toEqual({ start: now - 30 * DAY, end: t1 })
+  })
+
+  it('month: 起点为日历月回退, 右端夹到数据末端', () => {
+    expect(presetWindow('month', t0, t1, now)).toEqual({ start: minusOneMonth(now), end: t1 })
+  })
+
+  it('year: 数据不足一年时退化为全长', () => {
+    expect(presetWindow('year', t0, t1, now)).toEqual({ start: t0, end: t1 })
+  })
+
+  it('数据陈旧(整体早于窗口)时回退全长而非空窗口', () => {
+    const stale1 = now - 400 * DAY
+    const stale0 = stale1 - DAY
+    expect(presetWindow('d30', stale0, stale1, now)).toEqual({ start: stale0, end: stale1 })
+  })
+
+  it('custom 不参与档位解析(按全量返回, 实际窗口由输入框驱动)', () => {
+    expect(presetWindow('custom', t0, t1, now)).toEqual({ start: t0, end: t1 })
+  })
+})
+
+describe('minusOneMonth', () => {
+  it('普通日期按日历月回退(UTC 视角)', () => {
+    expect(new Date(minusOneMonth(Date.UTC(2026, 8, 13, 12, 0))).getUTCMonth()).toBe(7)
+  })
+
+  it('月末溢出取上月最后一天: 3/31 → 2/28(2026 非闰年)', () => {
+    const d = new Date(minusOneMonth(new Date(2026, 2, 31, 10, 0).getTime()))
+    expect(d.getMonth()).toBe(1)
+    expect(d.getDate()).toBe(28)
+    expect(d.getHours()).toBe(10)
+  })
+})
+
+describe('datetime-local 转换', () => {
+  it('毫秒 → 本地输入值(YYYY-MM-DDTHH:mm, 零填充)', () => {
+    expect(toLocalInputValue(new Date(2026, 8, 3, 9, 5).getTime())).toBe('2026-09-03T09:05')
+  })
+
+  it('往返解析回同一毫秒(本地时区)', () => {
+    const ms = new Date(2026, 8, 13, 9, 5).getTime()
+    expect(parseLocalInputValue(toLocalInputValue(ms))).toBe(ms)
+  })
+
+  it('空/非法输入返回 null', () => {
+    expect(parseLocalInputValue('')).toBeNull()
+    expect(parseLocalInputValue('not-a-date')).toBeNull()
   })
 })

@@ -6,7 +6,7 @@
 // - 密集点渲染自适应(按相邻点 X 像素间距收敛点半径/白描边)
 // 纯逻辑在 chartLogic.ts (可单测), 本文件只做绘制与交互编排
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { getHistory } from '@/api/endpoints'
 import { fmtAuto } from '@/lib/format'
 import type { SamplePoint } from '@/types'
@@ -15,18 +15,33 @@ import {
   clampLeftEdge,
   clampPanStart,
   clampRightEdge,
+  clampWindow,
   densityT,
   filterPointsByWindow,
   minWindowMs,
+  parseLocalInputValue,
+  presetWindow,
   previewHitMode,
   tickDecimals,
+  toLocalInputValue,
   yDomain,
   type PreviewGeo,
   type PreviewHitMode,
+  type RangePreset,
+  type TimeWindow,
 } from './chartLogic'
 
 // 触摸拖动判定阈值(px): 位移未超过视为"查看信息"(十字线跟随), 超过转为平移
 const TOUCH_PAN_THRESHOLD = 6
+
+// 工具栏时间范围档位(所有/最近一个月/最近30天/最近一年/自定义)
+const RANGE_PRESETS: Array<{ key: RangePreset; label: string }> = [
+  { key: 'all', label: '所有' },
+  { key: 'month', label: '最近一个月' },
+  { key: 'd30', label: '最近30天' },
+  { key: 'year', label: '最近一年' },
+  { key: 'custom', label: '自定义' },
+]
 // 画布字体: 跟随 Swiss 设计系统(latin 子集自托管, CJK 回退系统栈)
 const FONT_STACK = '"Inter", -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Helvetica Neue", sans-serif'
 const MONO_STACK = '"JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace'
@@ -93,6 +108,29 @@ export default function TrendChartModal({ id, name, onClose }: Props) {
   const previewRef = useRef<HTMLCanvasElement>(null)
   const statsRef = useRef<HTMLSpanElement>(null)
 
+  // ---- 时间范围档位(React 层) ----
+  const [preset, setPreset] = useState<RangePreset>('all')
+  // 数据域(全量采样点的时间跨度), 供档位计算与自定义输入上下限
+  const [domain, setDomain] = useState<TimeWindow | null>(null)
+  const [customStart, setCustomStart] = useState('')
+  const [customEnd, setCustomEnd] = useState('')
+  const [customError, setCustomError] = useState('')
+
+  // 图表闭包态(绘制/拖拽)暴露的命令: 应用窗口 / 读取当前窗口
+  const chartApiRef = useRef<{
+    applyWindow(start: number, end: number): void
+    getWindow(): TimeWindow
+  } | null>(null)
+
+  // 拖动预览条或主图平移后, 由图表闭包回调到 React 层(切到自定义档 + 回填输入框)
+  const onWindowChangeRef = useRef<((win: TimeWindow) => void) | null>(null)
+  onWindowChangeRef.current = (win) => {
+    setPreset('custom')
+    setCustomStart(toLocalInputValue(win.start))
+    setCustomEnd(toLocalInputValue(win.end))
+    setCustomError('')
+  }
+
   // 弹窗打开期间锁定 body 滚动，关闭/卸载时恢复
   useEffect(() => {
     const prev = document.body.style.overflow
@@ -119,6 +157,24 @@ export default function TrendChartModal({ id, name, onClose }: Props) {
     let previewHover: PreviewHitMode = ''
     let rafId = 0
     let docCleanup: (() => void) | null = null
+
+    // 供 React 层(档位按钮/自定义输入)驱动的命令接口:
+    // 应用窗口 = 设置闭包态窗口 + 重绘主图/预览条
+    const applyWindow = (start: number, end: number) => {
+      winStart = start
+      winEnd = end
+      hoverX = null
+      drawChart()
+    }
+    chartApiRef.current = {
+      applyWindow,
+      getWindow: () => ({ start: winStart, end: winEnd }),
+    }
+
+    // 拖拽结束(预览条窗口 / 主图平移)后回传窗口, 让 React 层切到"自定义"档并回填输入框
+    const notifyWindow = () => {
+      onWindowChangeRef.current?.({ start: winStart, end: winEnd })
+    }
 
     const scheduleRenderCharts = () => {
       if (rafId) return
@@ -575,6 +631,7 @@ export default function TrendChartModal({ id, name, onClose }: Props) {
         () => {
           previewDrag = null
           drawChart()
+          notifyWindow()
         },
         e.pointerId,
       )
@@ -688,6 +745,7 @@ export default function TrendChartModal({ id, name, onClose }: Props) {
           hoverX = null
           canvas.style.cursor = 'default'
           drawChart()
+          notifyWindow()
         },
         e.pointerId,
       )
@@ -711,14 +769,27 @@ export default function TrendChartModal({ id, name, onClose }: Props) {
           .slice()
           .sort((a, b) => new Date(a.t).getTime() - new Date(b.t).getTime())
         const times = points.map((p) => new Date(p.t).getTime())
-        winStart = times.length ? Math.min(...times) : 0
-        winEnd = times.length ? Math.max(...times) : 0
+        const t0 = times.length ? Math.min(...times) : 0
+        const t1 = times.length ? Math.max(...times) : 0
+        winStart = t0
+        winEnd = t1
+        // 打开弹窗复位为"所有"档; 数据域交给 React 层(档位按钮可用性 + 自定义输入上下限)
+        setDomain(times.length ? { start: t0, end: t1 } : null)
+        setPreset('all')
+        setCustomError('')
+        setCustomStart(times.length ? toLocalInputValue(t0) : '')
+        setCustomEnd(times.length ? toLocalInputValue(t1) : '')
         // 弹窗可见后 canvas 才有尺寸, 重绘一次
         requestAnimationFrame(() => drawChart())
       } catch (err) {
         points = []
         winStart = 0
         winEnd = 0
+        setDomain(null)
+        setPreset('all')
+        setCustomError('')
+        setCustomStart('')
+        setCustomEnd('')
         stats.textContent = `加载失败: ${(err as Error).message}`
         drawChart()
       }
@@ -734,8 +805,52 @@ export default function TrendChartModal({ id, name, onClose }: Props) {
       canvas.removeEventListener('pointerdown', onCanvasPointerDown)
       if (rafId) cancelAnimationFrame(rafId)
       docCleanup?.()
+      chartApiRef.current = null
     }
   }, [id])
+
+  // ---- 时间范围档位(React 层): 预设 = 计算窗口并交给图表闭包应用 ----
+
+  const selectPreset = (key: RangePreset) => {
+    if (!domain) return
+    if (key === 'custom') {
+      // 切到自定义档: 保留当前窗口并回填输入框, 由用户微调后点"应用"
+      const win = chartApiRef.current?.getWindow()
+      if (win) {
+        setCustomStart(toLocalInputValue(win.start))
+        setCustomEnd(toLocalInputValue(win.end))
+      }
+      setCustomError('')
+      setPreset('custom')
+      return
+    }
+    const win = presetWindow(key, domain.start, domain.end, Date.now())
+    chartApiRef.current?.applyWindow(win.start, win.end)
+    setCustomError('')
+    setPreset(key)
+  }
+
+  const applyCustomRange = () => {
+    if (!domain) return
+    const start = parseLocalInputValue(customStart)
+    const end = parseLocalInputValue(customEnd)
+    if (start == null || end == null) {
+      setCustomError('请填写完整的起止时间')
+      return
+    }
+    if (start >= end) {
+      setCustomError('起始时间需早于结束时间')
+      return
+    }
+    // 夹紧到数据域; 完全落在域外会塌缩成空窗口 → 提示无数据
+    const win = clampWindow({ start, end }, domain.start, domain.end)
+    if (win.end <= win.start) {
+      setCustomError('所选区间内没有采样数据')
+      return
+    }
+    chartApiRef.current?.applyWindow(win.start, win.end)
+    setCustomError('')
+  }
 
   return (
     <div
@@ -752,8 +867,62 @@ export default function TrendChartModal({ id, name, onClose }: Props) {
           </button>
         </div>
         <div className="chart-toolbar">
+          <div className="chart-range" role="group" aria-label="时间范围">
+            {RANGE_PRESETS.map((p) => (
+              <button
+                key={p.key}
+                type="button"
+                className={`chart-range__btn${preset === p.key ? ' is-active' : ''}`}
+                aria-pressed={preset === p.key}
+                disabled={!domain}
+                onClick={() => selectPreset(p.key)}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
           <span ref={statsRef} className="form__msg chart-stats" />
         </div>
+        {preset === 'custom' && domain && (
+          <div className="chart-custom">
+            <label className="chart-custom__field">
+              <span className="chart-custom__label">起</span>
+              <input
+                type="datetime-local"
+                className="chart-custom__input"
+                value={customStart}
+                min={toLocalInputValue(domain.start)}
+                max={toLocalInputValue(domain.end)}
+                onChange={(e) => {
+                  setCustomStart(e.target.value)
+                  setCustomError('')
+                }}
+              />
+            </label>
+            <label className="chart-custom__field">
+              <span className="chart-custom__label">止</span>
+              <input
+                type="datetime-local"
+                className="chart-custom__input"
+                value={customEnd}
+                min={toLocalInputValue(domain.start)}
+                max={toLocalInputValue(domain.end)}
+                onChange={(e) => {
+                  setCustomEnd(e.target.value)
+                  setCustomError('')
+                }}
+              />
+            </label>
+            <button
+              type="button"
+              className="btn btn--ghost chart-custom__apply"
+              onClick={applyCustomRange}
+            >
+              应用
+            </button>
+            {customError ? <span className="chart-custom__msg">{customError}</span> : null}
+          </div>
+        )}
         <div className="chart-wrap">
           <canvas ref={canvasRef} className="chart-canvas" />
         </div>
