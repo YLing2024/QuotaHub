@@ -1,4 +1,4 @@
-// 各 API 类型化封装 (全部走统一 client, 自动带 Bearer + 401 跳转)
+// 各 API 类型化封装 (全部走统一 client, 401 由 client 统一跳网关登录页)
 
 import { api } from './client'
 import type {

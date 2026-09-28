@@ -4,24 +4,10 @@ import App from './App'
 import './fonts/fonts.css'
 import './styles/style.css'
 
-// 启动探测登录态: 调一次 /api/me; 未登录交给标准 SSO 流程 (后端 /sso/login)。
-// token 全在服务端, 前端只认 cookie。
-async function bootstrap(): Promise<void> {
-  try {
-    const res = await fetch('/api/me', { credentials: 'same-origin' })
-    if (res.status === 401) {
-      window.location.href = '/sso/login'
-      return
-    }
-  } catch {
-    // 网络异常不阻塞渲染
-  }
-
-  ReactDOM.createRoot(document.getElementById('root')!).render(
-    <React.StrictMode>
-      <App />
-    </React.StrictMode>,
-  )
-}
-
-void bootstrap()
+// 登录由 Auth Gateway 负责: 页面直接渲染, 未登录时任何 /api 调用收到 401,
+// 由统一 client 整页跳 /_auth/login (不再有启动探测与本地登录态)。
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+)

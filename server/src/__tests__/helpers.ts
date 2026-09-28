@@ -45,6 +45,9 @@ export async function req<T = unknown>(
     method,
     headers: {
       ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
+      // 业务接口鉴权已交给 Auth Gateway: 测试默认模拟网关注入的身份头。
+      // 需要测「未登录 401」的用例显式传 'X-Auth-User': '' 覆盖。
+      'X-Auth-User': 'test-user',
       ...headers,
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,

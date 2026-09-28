@@ -6,20 +6,17 @@ describe('loadConfig (Zod env 校验)', () => {
     const cfg = loadConfig({})
     expect(cfg.port).toBe(3000)
     expect(cfg.host).toBe('127.0.0.1')
-    expect(cfg.token).toBe('')
     expect(cfg.scriptTimeoutMs).toBe(2000)
     expect(cfg.allowPrivate).toBe(false)
   })
 
-  it('解析 PORT/HOST/TOKEN', () => {
+  it('解析 PORT/HOST', () => {
     const cfg = loadConfig({
       PORT: '5310',
       HOST: '0.0.0.0',
-      QUOTAHUB_TOKEN: ' secret ',
     })
     expect(cfg.port).toBe(5310)
     expect(cfg.host).toBe('0.0.0.0')
-    expect(cfg.token).toBe('secret')
   })
 
   it('非法 PORT 抛出明确错误', () => {
