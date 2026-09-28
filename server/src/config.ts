@@ -28,6 +28,16 @@ const envSchema = z.object({
     .string()
     .optional()
     .transform((v) => v === '1'),
+  // ---- BFF SSO 配置 (认证中心地址等私有信息一律走 env, 源码不硬编码) ----
+  // 授权/令牌/用户信息/撤销端点所在 issuer; 生产必须覆盖为真实认证中心
+  QUOTAHUB_SSO_ISSUER: z.string().trim().default('https://auth.example.com'),
+  QUOTAHUB_SSO_CLIENT_ID: z.string().trim().min(1).default('quotahub'),
+  // 回调地址: 留空则按请求 Host/X-Forwarded-Proto 推导, 生产建议显式固定(须与认证中心注册精确一致)
+  QUOTAHUB_SSO_REDIRECT_URI: z.string().trim().optional(),
+  // client_secret 存放文件与键名 (文件 0600; 只读不打印不提交)
+  QUOTAHUB_SSO_CLIENT_SECRET_FILE: z.string().trim().default('/root/.sso_clients.env'),
+  QUOTAHUB_SSO_CLIENT_SECRET_KEY: z.string().trim().min(1).default('QUOTAHUB_CLIENT_SECRET'),
+  QUOTAHUB_SSO_COOKIE_NAME: z.string().trim().min(1).default('__Host-quotahub_session'),
 })
 
 export interface Config {
@@ -38,6 +48,12 @@ export interface Config {
   staticDir: string | null
   scriptTimeoutMs: number
   allowPrivate: boolean
+  ssoIssuer: string
+  ssoClientId: string
+  ssoRedirectUri: string | null
+  ssoClientSecretFile: string
+  ssoClientSecretKey: string
+  ssoCookieName: string
 }
 
 // 从 startDir 向上查找包含 package.json 且 name 为 quotahub 的目录 (仓库根)
@@ -88,6 +104,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     QUOTAHUB_STATIC_DIR: env.QUOTAHUB_STATIC_DIR,
     QUOTAHUB_SCRIPT_TIMEOUT_MS: env.QUOTAHUB_SCRIPT_TIMEOUT_MS,
     QUOTAHUB_ALLOW_PRIVATE: env.QUOTAHUB_ALLOW_PRIVATE,
+    QUOTAHUB_SSO_ISSUER: env.QUOTAHUB_SSO_ISSUER,
+    QUOTAHUB_SSO_CLIENT_ID: env.QUOTAHUB_SSO_CLIENT_ID,
+    QUOTAHUB_SSO_REDIRECT_URI: env.QUOTAHUB_SSO_REDIRECT_URI,
+    QUOTAHUB_SSO_CLIENT_SECRET_FILE: env.QUOTAHUB_SSO_CLIENT_SECRET_FILE,
+    QUOTAHUB_SSO_CLIENT_SECRET_KEY: env.QUOTAHUB_SSO_CLIENT_SECRET_KEY,
+    QUOTAHUB_SSO_COOKIE_NAME: env.QUOTAHUB_SSO_COOKIE_NAME,
   })
   const repoRoot = findRepoRootFromModule()
   return {
@@ -98,6 +120,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     staticDir: resolveStaticDir(repoRoot, parsed.QUOTAHUB_STATIC_DIR),
     scriptTimeoutMs: parsed.QUOTAHUB_SCRIPT_TIMEOUT_MS,
     allowPrivate: parsed.QUOTAHUB_ALLOW_PRIVATE,
+    ssoIssuer: parsed.QUOTAHUB_SSO_ISSUER.replace(/\/+$/, ''),
+    ssoClientId: parsed.QUOTAHUB_SSO_CLIENT_ID,
+    ssoRedirectUri: parsed.QUOTAHUB_SSO_REDIRECT_URI?.trim() || null,
+    ssoClientSecretFile: parsed.QUOTAHUB_SSO_CLIENT_SECRET_FILE,
+    ssoClientSecretKey: parsed.QUOTAHUB_SSO_CLIENT_SECRET_KEY,
+    ssoCookieName: parsed.QUOTAHUB_SSO_COOKIE_NAME,
   }
 }
 
