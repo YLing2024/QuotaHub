@@ -1,7 +1,5 @@
-// 统一 API client: 每次请求带 Authorization Bearer; 401 → 清 token 并跳认证中心
-// 业务模块只调用本文件, 不感知 SSO 细节
-
-import { getToken, redirectToAuth } from '@/auth/sso'
+// 统一 API client: 同源请求自动带 BFF 会话 cookie (credentials: same-origin),
+// 不携带 Authorization; 未登录(401)只抛出 ApiError, 不在此处跳转。
 
 export class ApiError extends Error {
   status: number
@@ -20,20 +18,14 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   }
-  const token = getToken()
-  if (token) headers.Authorization = `Bearer ${token}`
 
   const res = await fetch(path, {
     method: options.method ?? 'GET',
     headers,
+    credentials: 'same-origin',
     body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
   })
 
-  if (res.status === 401) {
-    // 未登录或登录已过期 → 跳认证中心(回跳当前页)
-    redirectToAuth()
-    throw new ApiError(401, '未登录或登录已过期')
-  }
   if (res.status === 204) return undefined as T
 
   const data = (await res.json().catch(() => ({}))) as Record<string, unknown>
