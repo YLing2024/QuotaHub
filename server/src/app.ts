@@ -2,8 +2,7 @@ import path from 'node:path'
 import fs from 'node:fs'
 import express, { Express } from 'express'
 import { config } from './config.js'
-import { sessionOrToken } from './middleware/session.js'
-import { createSsoRouter, createMeRouter } from './routes/sso.js'
+import { requireAuthUser } from './middleware/auth.js'
 import { createPlatformsRouter } from './routes/platforms.js'
 import { createPresetsRouter } from './routes/presets.js'
 import { createSettingsRouter } from './routes/settings.js'
@@ -30,18 +29,13 @@ export function createApp(): Express {
 
   app.use(express.json())
 
-  // BFF SSO 端点 (免业务鉴权): /sso/login, /sso/callback, /sso/logout
-  app.use('/sso', createSsoRouter())
-  // /api/me 只认站内会话, 挂在业务鉴权之前 (未登录必须 401)
-  app.use('/api/me', createMeRouter())
-
   const staticDir = resolveStaticDir()
   if (staticDir) {
     app.use(express.static(staticDir))
   }
 
-  // 会话优先; 无会话退回原有令牌鉴权 (探针通道保留, 行为与改造前一致)
-  app.use('/api', sessionOrToken)
+  // /api/*：用户身份只认网关注入的 X-Auth-User；缺失 → 401
+  app.use('/api', requireAuthUser)
 
   app.use('/api/platforms', createPlatformsRouter())
   app.use('/api/presets', createPresetsRouter())

@@ -1,5 +1,5 @@
-// 统一 API client: 同源请求自动带 BFF 会话 cookie (credentials: same-origin),
-// 不携带 Authorization; 未登录(401)只抛出 ApiError, 不在此处跳转。
+// 统一 API client: 同源请求自动带网关会话 cookie (credentials: same-origin),
+// 不携带 Authorization。全局唯一 401 处理: 整页跳网关登录页, 不做弹窗/局部登录 UI/重试。
 
 export class ApiError extends Error {
   status: number
@@ -14,6 +14,16 @@ export interface ApiOptions {
   body?: unknown
 }
 
+let redirecting = false
+
+// 401 → 整页跳网关登录页, next 带回当前地址 (pathname + search)
+function redirectToLogin(): void {
+  if (redirecting) return
+  redirecting = true
+  const next = encodeURIComponent(window.location.pathname + window.location.search)
+  window.location.href = `/_auth/login?next=${next}`
+}
+
 export async function api<T>(path: string, options: ApiOptions = {}): Promise<T> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -25,6 +35,11 @@ export async function api<T>(path: string, options: ApiOptions = {}): Promise<T>
     credentials: 'same-origin',
     body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
   })
+
+  if (res.status === 401) {
+    redirectToLogin()
+    throw new ApiError(401, '未登录或登录已过期')
+  }
 
   if (res.status === 204) return undefined as T
 

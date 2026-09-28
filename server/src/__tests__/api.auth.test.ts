@@ -4,19 +4,14 @@ import path from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { TestServer } from './helpers.js'
 
-// 应用层令牌鉴权测试: QUOTAHUB_TOKEN 设置后的访问控制
-const prevToken = process.env.QUOTAHUB_TOKEN
+// 新架构鉴权测试: 用户身份只认 Auth Gateway 注入的 X-Auth-User 头;
+// 头缺失/为空 → 401; 公开静态资源不受保护。
 process.env.QUOTAHUB_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'qh-api-auth-'))
-process.env.QUOTAHUB_TOKEN = 'e2e-secret-token'
 
 const { createApp } = await import('../app.js')
 const { initSchema } = await import('../db/init.js')
 const { closeDb } = await import('../db/connection.js')
 const { startServer, req } = await import('./helpers.js')
-
-// 恢复 env, 防止泄漏到同 worker 的其他测试文件 (config 已在 import 时捕获)
-if (prevToken === undefined) delete process.env.QUOTAHUB_TOKEN
-else process.env.QUOTAHUB_TOKEN = prevToken
 
 initSchema()
 
@@ -33,42 +28,31 @@ afterAll(async () => {
   closeDb()
 })
 
-describe('QUOTAHUB_TOKEN 鉴权', () => {
-  it('无令牌 -> 401 未授权', async () => {
-    const r = await req<{ error: string }>(base, 'GET', '/api/settings')
-    expect(r.status).toBe(401)
-    expect(r.body.error).toBe('未授权: 缺少或错误的访问令牌')
-  })
-
-  it('错误令牌 -> 401', async () => {
-    const r = await req(base, 'GET', '/api/settings', undefined, {
-      Authorization: 'Bearer wrong-token',
+describe('X-Auth-User 鉴权', () => {
+  it('缺少 X-Auth-User -> 401 未登录', async () => {
+    const r = await req<{ error: string }>(base, 'GET', '/api/settings', undefined, {
+      'X-Auth-User': '',
     })
     expect(r.status).toBe(401)
+    expect(r.body.error).toBe('未登录')
   })
 
-  it('Authorization: Bearer 通过', async () => {
+  it('X-Auth-User 非空 -> 放行 (200)', async () => {
     const r = await req<{ collectIntervalSeconds: number }>(base, 'GET', '/api/settings', undefined, {
-      Authorization: 'Bearer e2e-secret-token',
+      'X-Auth-User': 'alice',
     })
     expect(r.status).toBe(200)
   })
 
-  it('X-Quotahub-Token 头通过 (旧客户端兼容)', async () => {
+  it('Authorization: Bearer 不再作为凭证 (缺失 X-Auth-User 仍 401)', async () => {
     const r = await req(base, 'GET', '/api/settings', undefined, {
-      'X-Quotahub-Token': 'e2e-secret-token',
+      'X-Auth-User': '',
+      Authorization: 'Bearer legacy-token',
     })
-    expect(r.status).toBe(200)
+    expect(r.status).toBe(401)
   })
 
-  it('X-Auth-Token 头通过 (SSO/nginx 探针转发)', async () => {
-    const r = await req(base, 'GET', '/api/settings', undefined, {
-      'X-Auth-Token': 'e2e-secret-token',
-    })
-    expect(r.status).toBe(200)
-  })
-
-  it('静态资源不受令牌保护', async () => {
+  it('静态资源不受鉴权保护', async () => {
     const res = await fetch(`${base}/`)
     expect(res.status).toBe(200)
   })

@@ -525,8 +525,15 @@ describe('静态资源与未知路由', () => {
     expect(html).toContain('<!') // html 文档
   })
 
-  it('未知 /api 路由 -> 404', async () => {
-    const res = await fetch(`${base}/api/definitely-not-exist`)
+  it('未知 /api 路由 -> 404 (带网关注入的身份头)', async () => {
+    const res = await fetch(`${base}/api/definitely-not-exist`, {
+      headers: { 'X-Auth-User': 'test-user' },
+    })
     expect(res.status).toBe(404)
+  })
+
+  it('未知 /api 路由且无身份头 -> 401 (鉴权先于 404)', async () => {
+    const res = await fetch(`${base}/api/definitely-not-exist`)
+    expect(res.status).toBe(401)
   })
 })
