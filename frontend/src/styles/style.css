@@ -763,6 +763,11 @@ a {
   white-space: nowrap;
 }
 
+/* 采集进行中: 用唯一强调色点亮状态位, 与空闲态区分 */
+.section__note--active {
+  color: var(--accent);
+}
+
 .section__desc {
   font-size: 13px;
   color: var(--muted);

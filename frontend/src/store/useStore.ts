@@ -12,6 +12,26 @@ import {
 
 const DEFAULT_SETTINGS: Settings = { collectIntervalSeconds: 0 }
 
+// 空面板(与旧行为一致: 失败/未加载时)
+const EMPTY_DASHBOARD: DashboardData = {
+  updatedAt: '',
+  platforms: [],
+  collecting: false,
+  lastRunAt: null,
+  lastRunReason: null,
+}
+
+// 归一化后端响应: 兼容旧后端(无 collecting/lastRunAt/lastRunReason)
+function toDashboard(data: DashboardData): DashboardData {
+  return {
+    updatedAt: data.updatedAt || '',
+    platforms: data.platforms || [],
+    collecting: !!data.collecting,
+    lastRunAt: data.lastRunAt ?? null,
+    lastRunReason: data.lastRunReason ?? null,
+  }
+}
+
 export function formatLastUpdate(updatedAt: string | null | undefined): string {
   return `LAST UPDATE — ${updatedAt ? new Date(updatedAt).toLocaleString('zh-CN') : '—'}`
 }
@@ -23,6 +43,7 @@ interface AppState {
   presets: Preset[]
   settings: Settings
   loadDashboard(): Promise<void>
+  refreshDashboard(): Promise<void>
   setLastUpdateError(msg: string): void
   loadPlatforms(): Promise<void>
   setPlatforms(list: Platform[]): void
@@ -32,7 +53,7 @@ interface AppState {
 }
 
 export const useStore = create<AppState>((set) => ({
-  dashboard: { updatedAt: '', platforms: [] },
+  dashboard: EMPTY_DASHBOARD,
   lastUpdateText: formatLastUpdate(null),
   platforms: [],
   presets: [],
@@ -42,12 +63,25 @@ export const useStore = create<AppState>((set) => ({
     try {
       const data = await getBalances()
       set({
-        dashboard: { updatedAt: data.updatedAt || '', platforms: data.platforms || [] },
+        dashboard: toDashboard(data),
         lastUpdateText: formatLastUpdate(data.updatedAt),
       })
     } catch {
       // 与旧行为一致: 失败时面板按空数据处理
-      set({ dashboard: { updatedAt: '', platforms: [] }, lastUpdateText: formatLastUpdate(null) })
+      set({ dashboard: EMPTY_DASHBOARD, lastUpdateText: formatLastUpdate(null) })
+    }
+  },
+
+  // 轮询专用: 成功才覆盖面板, 失败静默并保留上一次数据(网络抖动不清空面板)
+  refreshDashboard: async () => {
+    try {
+      const data = await getBalances()
+      set({
+        dashboard: toDashboard(data),
+        lastUpdateText: formatLastUpdate(data.updatedAt),
+      })
+    } catch {
+      // 静默重试: 不改 dashboard / lastUpdateText
     }
   },
 

@@ -110,6 +110,17 @@ export interface BalanceCard {
   fetchedAt: string | null
 }
 
+// 面板响应 GET /api/platforms/balances: 既有 updatedAt/platforms 不变,
+// 新增采集运行态字段(向后兼容): collecting=当前是否有采集轮在跑,
+// lastRunAt=最近一轮完成时间(没跑过为 null), lastRunReason=schedule|manual|boot
+export interface Dashboard {
+  updatedAt: string
+  platforms: BalanceCard[]
+  collecting: boolean
+  lastRunAt: string | null
+  lastRunReason: string | null
+}
+
 // 抓取结果: handler 必须返回有限数字(纯数值语义, 不做字符串展示/提取)
 export interface FetchResult {
   value: number
