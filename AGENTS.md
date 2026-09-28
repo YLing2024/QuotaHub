@@ -8,7 +8,7 @@
 
 npm workspaces monorepo：`server/`（TS + Express 5 + SQLite）+ `frontend/`（React 18 + Vite + TS）。
 
-生产：`quotahub.service`，`127.0.0.1:5300`，对外挂在自建子域（部署方配置：nginx Basic Auth + 应用层 `QUOTAHUB_TOKEN` 双密码）。
+生产：`quotahub.service`，`127.0.0.1:5300`，对外挂在自建子域。鉴权全部由 **Auth Gateway**（`127.0.0.1:18920`，nginx 反代进来）负责：登录 / OAuth2 / state / PKCE / 会话都在网关；`/api/*` 由网关注入 `X-Auth-User` 头，本仓库零 OAuth / token / 登录态代码。
 
 ## 技术栈
 
@@ -26,13 +26,13 @@ server/src/
 ├── app.ts / index.ts / config.ts / types.ts
 ├── db/{connection,init}.ts
 ├── lib/{fetcher,storage}.ts        # 请求抓取（含 SSRF 防护）+ 脚本沙箱
-├── middleware/auth.ts
+├── middleware/auth.ts               # 读网关注入的 X-Auth-User, 缺失 401
 ├── repositories/                   # platformRepo / historyRepo / logRepo / presetRepo / settingsRepo
 ├── routes/                         # platforms / presets / settings / logs / transfer
 ├── services/                       # platformService / monitorService / logService / presetService / settingsService / transferService
 └── __tests__/                      # vitest 用例
 frontend/src/
-├── api/ auth/ store/ lib/ styles/ types.ts
+├── api/ store/ lib/ styles/ types.ts
 └── components/{Dashboard,Config,Logs,Transfer,TrendChart}/
 public/                             # 前端构建产物（不入库，后端 express.static 托管）
 data/                               # 运行时数据（不入库）
@@ -62,7 +62,7 @@ systemctl restart quotahub        # 跑 server/dist/index.js
 systemctl status quotahub
 ```
 
-- nginx：`<自建域名>` → `127.0.0.1:5300`，外层 Basic Auth，`/api/*` 另有 SSO 探针。
+- nginx：`<自建域名>` → Auth Gateway（`127.0.0.1:18920`）；网关鉴权后把 `/api/*` 反代到 `127.0.0.1:5300` 并注入 `X-Auth-User`，静态页面 `/` 直连后端。配置里**不再有** `auth_request` / 探针 / `?token=`。
 - 若配置了镜像域名，改 nginx 时几个域名体系要同步。
 
 ## 架构要点
@@ -80,19 +80,19 @@ systemctl status quotahub
 | 变量 | 默认 | 说明 |
 |---|---|---|
 | `PORT` / `HOST` | `3000` / `127.0.0.1` | 生产 systemd 设 `PORT=5300` |
-| `QUOTAHUB_TOKEN` | 空 | 设置后 `/api/*` 需 `Authorization: Bearer` 或 `X-Quotahub-Token` / `X-Auth-Token` |
 | `QUOTAHUB_DATA_DIR` | `./data` | 配置 + SQLite 目录 |
 | `QUOTAHUB_STATIC_DIR` | 自动向上查找 `public/` | 静态前端目录覆盖 |
 | `QUOTAHUB_SCRIPT_TIMEOUT_MS` | `2000` | 沙箱脚本超时 |
 | `QUOTAHUB_ALLOW_PRIVATE` | 空 | `=1` 放行内网地址 |
-| `VITE_AUTH_CENTER_URL`（frontend） | 占位 `https://auth.example.com/auth` | **构建时注入**，真实值只存本地 `.env` |
+
+> 鉴权不在本仓库的环境变量里：登录与 SSO 全在 Auth Gateway。本服务只读网关注入的 `X-Auth-User` 头。
 
 ## 安全与仓库红线
 
 - 🔒 **`data/` 曾经在旧 git 历史里被跟踪过**：`.gitignore` 对**曾跟踪**的文件无效。**任何 git 历史操作（rebase / reset --hard / cherry-pick / filter-branch）之前，必须先 `cp -r data/ /root/backups/quotahub-data-$(date +%s)`**。配置数据没有 git 兜底，丢了只能靠旧历史或用户重导。
 - 推送前扫一遍 `sk-`、真实域名、token。
-- 前端构建产物 `public/` **不入库**（构建会注入真实私有地址，提交等于泄漏）；仓库只提交 `.env.example`。
-- 私有地址（认证中心域名、`monitor.` 子域、服务器 IP）**只能**通过 `import.meta.env.VITE_*` 注入，源码里不得硬编码。
+- 前端构建产物 `public/` **不入库**（本地构建，由后端 `express.static` 托管）；仓库只提交 `.env.example`。
+- 鉴权由 Auth Gateway 负责，本仓库**不写**任何 OAuth / token / SSO / 登录态代码；源码里不得硬编码认证中心域名、部署域名或服务器 IP。
 - 推送到公开仓库前自检：`grep -rn "<你的域名>\|<你的公网IP>\|sk-" --exclude-dir=node_modules .` 应为 0。
 
 ## 已知坑
