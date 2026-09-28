@@ -6,6 +6,7 @@ import { afterAll, afterEach, describe, expect, it } from 'vitest'
 process.env.QUOTAHUB_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'qh-monitor-'))
 
 const { monitorService } = await import('../services/monitorService.js')
+const { logService } = await import('../services/logService.js')
 const { platformRepo } = await import('../repositories/index.js')
 const { historyRepo } = await import('../repositories/index.js')
 const { closeDb } = await import('../db/connection.js')
@@ -43,6 +44,13 @@ function addPlatform(id: string, name: string, handler?: string, format?: string
 }
 
 describe('monitorService 采集流程 (fetcher -> history_samples)', () => {
+  it('初始面板暴露采集运行态: collecting=false, 未跑过 lastRunAt/lastRunReason 为 null', () => {
+    const dash = monitorService.buildDashboard()
+    expect(dash.collecting).toBe(false)
+    expect(dash.lastRunAt).toBeNull()
+    expect(dash.lastRunReason).toBeNull()
+  })
+
   it('collect 成功 -> 写采样点并反映到面板', async () => {
     addPlatform('mp1', '平台一')
     stubFetch(async () => new Response(JSON.stringify({ balance: 42.5 }), { status: 200 }))
@@ -181,6 +189,50 @@ describe('monitorService 采集流程 (fetcher -> history_samples)', () => {
     expect(okItem?.ok).toBe(true)
     expect(failItem?.ok).toBe(false)
     expect((failItem as { error?: string }).error).toContain('boom')
+  })
+
+  it('refreshAll 与 runOnce 更新 lastRunAt/lastRunReason, 且日志 meta.source 区分 manual/auto', async () => {
+    stubFetch(async () => new Response(JSON.stringify({ balance: 9 }), { status: 200 }))
+
+    await monitorService.refreshAll()
+    const afterManual = monitorService.buildDashboard()
+    expect(afterManual.collecting).toBe(false)
+    expect(afterManual.lastRunReason).toBe('manual')
+    expect(typeof afterManual.lastRunAt).toBe('string')
+
+    await monitorService.runOnce('schedule')
+    const afterAuto = monitorService.buildDashboard()
+    expect(afterAuto.collecting).toBe(false)
+    expect(afterAuto.lastRunReason).toBe('schedule')
+    expect(typeof afterAuto.lastRunAt).toBe('string')
+
+    const logs = logService.list(100)
+    const manualFetch = logs.find((l) => l.action === 'fetch' && l.meta?.source === 'manual')
+    const autoFetch = logs.find((l) => l.action === 'fetch' && l.meta?.source === 'auto')
+    const manualRefresh = logs.find((l) => l.action === 'refresh' && l.meta?.source === 'manual')
+    expect(manualFetch).toBeTruthy()
+    expect(autoFetch).toBeTruthy()
+    expect(manualRefresh).toBeTruthy()
+  })
+
+  it('采集进行中 collecting=true, 一轮完成后回到 false', async () => {
+    addPlatform('mprun', '运行态平台')
+    let release: () => void = () => {}
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    stubFetch(async () => {
+      await gate
+      return new Response(JSON.stringify({ balance: 1 }), { status: 200 })
+    })
+
+    const pending = monitorService.runOnce('schedule')
+    await new Promise((r) => setTimeout(r, 0))
+    expect(monitorService.buildDashboard().collecting).toBe(true)
+
+    release()
+    await pending
+    expect(monitorService.buildDashboard().collecting).toBe(false)
   })
 
   it('runOnce 无平台时直接返回; 定时调度 start/reschedule/stop 不抛错', async () => {

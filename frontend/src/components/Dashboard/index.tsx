@@ -73,6 +73,7 @@ export default function DashboardTab() {
   const lastUpdateText = useStore((s) => s.lastUpdateText)
   const settings = useStore((s) => s.settings)
   const loadDashboard = useStore((s) => s.loadDashboard)
+  const refreshDashboard = useStore((s) => s.refreshDashboard)
   const setLastUpdateError = useStore((s) => s.setLastUpdateError)
   const loadSettings = useStore((s) => s.loadSettings)
   const applySettings = useStore((s) => s.applySettings)
@@ -91,6 +92,39 @@ export default function DashboardTab() {
     void loadDashboard()
     void loadSettings()
   }, [loadDashboard, loadSettings])
+
+  // 页面可见时每 15s 轮询一次面板(感知自动采集结果); 不可见不发请求, 切回可见立刻补一次。
+  // 失败由 refreshDashboard 静默处理并保留上一次数据, 不清空面板。
+  useEffect(() => {
+    const POLL_MS = 15000
+    let timer: number | null = null
+    const stopPolling = () => {
+      if (timer != null) {
+        window.clearInterval(timer)
+        timer = null
+      }
+    }
+    const startPolling = () => {
+      if (timer != null) return
+      timer = window.setInterval(() => {
+        if (document.visibilityState === 'visible') void refreshDashboard()
+      }, POLL_MS)
+    }
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void refreshDashboard()
+        startPolling()
+      } else {
+        stopPolling()
+      }
+    }
+    if (document.visibilityState === 'visible') startPolling()
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => {
+      stopPolling()
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
+  }, [refreshDashboard])
 
   // 已保存的采集间隔变化时回填输入框(渲染期调整, 替代 effect 同步)
   const [savedSec, setSavedSec] = useState(settings.collectIntervalSeconds)
@@ -173,8 +207,12 @@ export default function DashboardTab() {
           <h3 className="section__title">平台余额总览</h3>
           <div className="section__head-actions">
             <span className="section__note">{lastUpdateText}</span>
-            <span className="section__note">
-              {sec > 0 ? `自动采集 · 每 ${sec} 秒` : '自动采集 · 关闭'}
+            <span className={`section__note${dashboard.collecting ? ' section__note--active' : ''}`}>
+              {dashboard.collecting
+                ? '自动采集 · 进行中…'
+                : sec > 0
+                  ? `自动采集 · 每 ${sec} 秒`
+                  : '自动采集 · 关闭'}
             </span>
           </div>
         </div>

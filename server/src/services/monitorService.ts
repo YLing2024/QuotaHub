@@ -1,7 +1,7 @@
 import { historyRepo, platformRepo, settingsRepo } from '../repositories/index.js'
 import { fetchBalance } from '../lib/fetcher.js'
 import { logService } from './logService.js'
-import type { BalanceCard, Platform } from '../types.js'
+import type { Dashboard, Platform } from '../types.js'
 
 // 采集监控业务逻辑: fetcher -> 写 history_samples; 维护"最近一次失败"运行时状态
 // 设计约定: 不单独持久化当前 balance, 面板最新值 = 历史采样最新点
@@ -16,6 +16,15 @@ const lastErrors = new Map<string, LastError>()
 
 let timer: NodeJS.Timeout | null = null
 let running = false
+// 最近一轮采集的完成时间与来源(运行时状态, 随进程生命周期; 不持久化)
+let lastRunAt: string | null = null
+let lastRunReason: string | null = null
+
+// 记录一轮采集结束(collecting 由 running 反映; 这里只更新完成时间/来源)
+function markRunFinished(reason: string): void {
+  lastRunAt = new Date().toISOString()
+  lastRunReason = reason
+}
 
 export interface FetchOutcome {
   ok: boolean
@@ -50,13 +59,13 @@ async function fetchOne(id: string): Promise<FetchOutcome> {
     logService.log('fetch', `获取「${p.name}」余额成功: ${outcome.value}`, {
       platformId: p.id,
       platformName: p.name,
-      meta: { value: outcome.value },
+      meta: { source: 'manual', value: outcome.value },
     })
   } else {
     logService.log('fetch', `获取「${p.name}」余额失败: ${outcome.error}`, {
       platformId: p.id,
       platformName: p.name,
-      meta: { error: outcome.error },
+      meta: { source: 'manual', error: outcome.error },
     })
   }
   return outcome
@@ -79,8 +88,9 @@ async function refreshAll(): Promise<{ ok: true; results: Array<Record<string, u
     }
   }
   logService.log('refresh', `手动刷新完成: 成功 ${ok} 个, 失败 ${fail} 个`, {
-    meta: { ok, fail },
+    meta: { source: 'manual', ok, fail },
   })
+  markRunFinished('manual')
   return { ok: true, results }
 }
 
@@ -99,10 +109,11 @@ async function runOnce(reason?: string): Promise<void> {
       else fail++
     }
     logService.log('fetch', `自动采集完成: 成功 ${ok} 个, 失败 ${fail} 个`, {
-      meta: { reason: reason || 'schedule', ok, fail },
+      meta: { source: 'auto', reason: reason || 'schedule', ok, fail },
     })
   } finally {
     running = false
+    markRunFinished(reason || 'schedule')
   }
 }
 
@@ -139,7 +150,7 @@ function stop(): void {
 // 面板数据 GET /api/platforms/balances:
 // 最新值 = 历史采样最新点; 仅当失败发生在最新采样之后才显示错误
 // format = 平台配置的展示格式函数源码原样透传(不执行, 由前端主页渲染时执行); 未配置 -> null
-function buildDashboard(): { updatedAt: string; platforms: BalanceCard[] } {
+function buildDashboard(): Dashboard {
   const platforms = platformRepo.getAll()
   const data = platforms.map((p) => {
     const latestPoint = historyRepo.latest(p.id)
@@ -156,7 +167,13 @@ function buildDashboard(): { updatedAt: string; platforms: BalanceCard[] } {
     }
     return { id: p.id, name: p.name, url: p.url, value, format: p.format || null, error, fetchedAt }
   })
-  return { updatedAt: new Date().toISOString(), platforms: data }
+  return {
+    updatedAt: new Date().toISOString(),
+    platforms: data,
+    collecting: running,
+    lastRunAt,
+    lastRunReason,
+  }
 }
 
 export const monitorService = {

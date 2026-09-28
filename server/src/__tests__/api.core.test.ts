@@ -140,11 +140,18 @@ describe('reorder / balances / history API', () => {
   it('balances 初始 value/format 为 null, 抓取后有最新值与 fetchedAt', async () => {
     const empty = await req<{
       updatedAt: string
+      collecting: boolean
+      lastRunAt: string | null
+      lastRunReason: string | null
       platforms: Array<{ id: string; value: number | null; format: string | null; fetchedAt: string | null }>
     }>(base, 'GET', '/api/platforms/balances')
     expect(empty.status).toBe(200)
     expect(new Date(empty.body.updatedAt).toString()).not.toBe('Invalid Date')
     expect(empty.body.platforms.find((p) => p.id === pid)?.value).toBeNull()
+    // 新增采集运行态字段(既有字段保持不变)
+    expect(empty.body.collecting).toBe(false)
+    expect(empty.body.lastRunAt).toBeNull()
+    expect(empty.body.lastRunReason).toBeNull()
 
     stubFetchOk(55.5)
     const f = await req<{ ok: boolean; value: number; fetchedAt: string }>(
@@ -313,6 +320,16 @@ describe('reorder / balances / history API', () => {
     expect(r.body.ok).toBe(true)
     expect(r.body.results.length).toBeGreaterThanOrEqual(2)
     expect(r.body.results.every((x) => x.ok)).toBe(true)
+
+    // 手动全量刷新后, balances 暴露 lastRunReason=manual
+    const dash = await req<{ collecting: boolean; lastRunAt: string | null; lastRunReason: string | null }>(
+      base,
+      'GET',
+      '/api/platforms/balances',
+    )
+    expect(dash.body.collecting).toBe(false)
+    expect(dash.body.lastRunReason).toBe('manual')
+    expect(typeof dash.body.lastRunAt).toBe('string')
 
     stubFetchFail('刷新失败用例')
     const r2 = await req<{ results: Array<{ id: string; ok: boolean; error?: string }> }>(

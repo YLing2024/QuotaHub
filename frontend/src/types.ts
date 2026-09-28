@@ -93,6 +93,10 @@ export interface BalanceCard {
 export interface DashboardData {
   updatedAt: string
   platforms: BalanceCard[]
+  // 后端新增的采集运行态(向后兼容; 旧后端无这些字段时前端按未采集处理)
+  collecting: boolean
+  lastRunAt: string | null
+  lastRunReason: string | null
 }
 
 export interface HistoryView {
