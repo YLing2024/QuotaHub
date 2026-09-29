@@ -5,7 +5,10 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 import type { TestServer } from './helpers.js'
 
 // API 全链路等价性测试 (Express app 层, 独立临时数据目录)
+// 这些用例验证业务接口本身, 用 sso 模式模拟前置认证层注入 X-Auth-User;
+// builtin 认证流程见 auth.builtin.test.ts。
 process.env.QUOTAHUB_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'qh-api-core-'))
+process.env.AUTH_MODE = 'sso'
 
 const { createApp } = await import('../app.js')
 const { initSchema } = await import('../db/init.js')

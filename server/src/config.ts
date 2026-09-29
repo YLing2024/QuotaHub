@@ -27,7 +27,26 @@ const envSchema = z.object({
     .string()
     .optional()
     .transform((v) => v === '1'),
+  // 认证模式: builtin(默认, 自带账号) / sso(关闭自带口令, 只认 X-Auth-User)。
+  // 未设置或取值非法一律回退 builtin。
+  AUTH_MODE: z
+    .string()
+    .optional()
+    .transform((v) => (v === 'sso' ? 'sso' : 'builtin')),
+  // 首次启动引导创建的管理员用户名与口令(口令留空则随机生成并打印一次)
+  QUOTAHUB_ADMIN_USER: z.string().trim().min(1).default('admin'),
+  QUOTAHUB_ADMIN_PASSWORD: z.string().optional(),
+  // 会话 TTL(小时), 默认 12; 非法/非正数回退 12, 上限 30 天
+  QUOTAHUB_SESSION_TTL_HOURS: z
+    .string()
+    .optional()
+    .transform((v) => {
+      const n = Number(v)
+      return Number.isFinite(n) && n > 0 ? Math.min(n, 720) : 12
+    }),
 })
+
+export type AuthMode = 'builtin' | 'sso'
 
 export interface Config {
   port: number
@@ -36,6 +55,11 @@ export interface Config {
   staticDir: string | null
   scriptTimeoutMs: number
   allowPrivate: boolean
+  authMode: AuthMode
+  adminUser: string
+  // 未设置时为 null: 首次启动随机生成并打印一次
+  adminPassword: string | null
+  sessionTtlSeconds: number
 }
 
 // 从 startDir 向上查找包含 package.json 且 name 为 quotahub 的目录 (仓库根)
@@ -85,6 +109,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     QUOTAHUB_STATIC_DIR: env.QUOTAHUB_STATIC_DIR,
     QUOTAHUB_SCRIPT_TIMEOUT_MS: env.QUOTAHUB_SCRIPT_TIMEOUT_MS,
     QUOTAHUB_ALLOW_PRIVATE: env.QUOTAHUB_ALLOW_PRIVATE,
+    AUTH_MODE: env.AUTH_MODE,
+    QUOTAHUB_ADMIN_USER: env.QUOTAHUB_ADMIN_USER,
+    QUOTAHUB_ADMIN_PASSWORD: env.QUOTAHUB_ADMIN_PASSWORD,
+    QUOTAHUB_SESSION_TTL_HOURS: env.QUOTAHUB_SESSION_TTL_HOURS,
   })
   const repoRoot = findRepoRootFromModule()
   return {
@@ -94,6 +122,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     staticDir: resolveStaticDir(repoRoot, parsed.QUOTAHUB_STATIC_DIR),
     scriptTimeoutMs: parsed.QUOTAHUB_SCRIPT_TIMEOUT_MS,
     allowPrivate: parsed.QUOTAHUB_ALLOW_PRIVATE,
+    authMode: parsed.AUTH_MODE,
+    adminUser: parsed.QUOTAHUB_ADMIN_USER,
+    adminPassword: parsed.QUOTAHUB_ADMIN_PASSWORD ? parsed.QUOTAHUB_ADMIN_PASSWORD : null,
+    sessionTtlSeconds: Math.round(parsed.QUOTAHUB_SESSION_TTL_HOURS * 3600),
   }
 }
 
