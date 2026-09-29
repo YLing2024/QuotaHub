@@ -99,7 +99,7 @@ systemctl status quotahub
 
 ## 安全与仓库红线
 
-- 🔒 **`data/` 曾经在旧 git 历史里被跟踪过**：`.gitignore` 对**曾跟踪**的文件无效。**任何 git 历史操作（rebase / reset --hard / cherry-pick / filter-branch）之前，必须先 `cp -r data/ /root/backups/quotahub-data-$(date +%s)`**。配置数据没有 git 兜底，丢了只能靠旧历史或用户重导。
+- 🔒 **`data/` 曾经在旧 git 历史里被跟踪过**：`.gitignore` 对**曾跟踪**的文件无效。**任何 git 历史操作（rebase / reset --hard / cherry-pick / filter-branch）之前，必须先 `cp -r data/ ./backups/quotahub-data-$(date +%s)`**。配置数据没有 git 兜底，丢了只能靠旧历史或用户重导。
 - 推送前扫一遍 `sk-`、真实域名、token。
 - 前端构建产物 `public/` **不入库**（本地构建，由后端 `express.static` 托管）；仓库只提交 `.env.example`。
 - 鉴权分流：`builtin` 自带账号（`node:crypto` scrypt，不引入新依赖），`sso` 交给前置认证层；本仓库**不写**任何 OAuth / SSO 跳转 / 上游 token 代码；源码里不得硬编码认证中心域名、部署域名或服务器 IP。
