@@ -5,12 +5,19 @@ import { createApp } from './app.js'
 import { monitorService } from './services/monitorService.js'
 import { settingsService } from './services/settingsService.js'
 import { logService } from './services/logService.js'
+import { authService } from './services/authService.js'
 import { EXTRACT_TIMEOUT_MS } from './lib/fetcher.js'
 
-// 入口: 初始化 DB schema -> 组装 app -> 起服务 -> 启动定时采集
+// 入口: 初始化 DB schema -> 认证模式/首启引导 -> 组装 app -> 起服务 -> 启动定时采集
 
 ensureDataDir()
 initSchema()
+
+// 启动时打印一行当前认证模式; builtin 下 users 为空时创建管理员(口令仅打印一次)
+console.log(`认证模式: ${config.authMode}`)
+if (config.authMode === 'builtin') {
+  authService.ensureSeedAdmin()
+}
 
 const app = createApp()
 const server = app.listen(config.port, config.host, () => {

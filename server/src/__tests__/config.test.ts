@@ -46,6 +46,32 @@ describe('loadConfig (Zod env 校验)', () => {
     expect(loadConfig({ QUOTAHUB_ALLOW_PRIVATE: 'true' }).allowPrivate).toBe(false)
   })
 
+  describe('AUTH_MODE (默认 builtin, 非法回退 builtin)', () => {
+    it.each([
+      [undefined, 'builtin'],
+      ['', 'builtin'],
+      ['builtin', 'builtin'],
+      ['sso', 'sso'],
+      ['SSO', 'builtin'],
+      ['nonsense', 'builtin'],
+    ])('AUTH_MODE=%s -> %s', (input, expected) => {
+      expect(loadConfig({ AUTH_MODE: input as string | undefined }).authMode).toBe(expected)
+    })
+
+    it('管理员用户名默认 admin, 口令默认 null', () => {
+      const cfg = loadConfig({})
+      expect(cfg.adminUser).toBe('admin')
+      expect(cfg.adminPassword).toBeNull()
+    })
+
+    it('会话 TTL 默认 12 小时, 非法回退', () => {
+      expect(loadConfig({}).sessionTtlSeconds).toBe(12 * 3600)
+      expect(loadConfig({ QUOTAHUB_SESSION_TTL_HOURS: '1' }).sessionTtlSeconds).toBe(3600)
+      expect(loadConfig({ QUOTAHUB_SESSION_TTL_HOURS: '0' }).sessionTtlSeconds).toBe(12 * 3600)
+      expect(loadConfig({ QUOTAHUB_SESSION_TTL_HOURS: 'abc' }).sessionTtlSeconds).toBe(12 * 3600)
+    })
+  })
+
   it('QUOTAHUB_DATA_DIR 覆盖数据目录(相对路径按 CWD 解析)', () => {
     const cfg = loadConfig({ QUOTAHUB_DATA_DIR: '/tmp/qh-explicit' })
     expect(cfg.dataDir).toBe('/tmp/qh-explicit')

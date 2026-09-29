@@ -3,6 +3,7 @@ import fs from 'node:fs'
 import express, { Express } from 'express'
 import { config } from './config.js'
 import { requireAuthUser } from './middleware/auth.js'
+import { authModeHandler, createAuthRouter } from './routes/auth.js'
 import { createPlatformsRouter } from './routes/platforms.js'
 import { createPresetsRouter } from './routes/presets.js'
 import { createSettingsRouter } from './routes/settings.js'
@@ -34,7 +35,11 @@ export function createApp(): Express {
     app.use(express.static(staticDir))
   }
 
-  // /api/*：用户身份只认网关注入的 X-Auth-User；缺失 → 401
+  // /api/auth-mode 与本地认证端点必须在鉴权中间件之前放行
+  app.get('/api/auth-mode', authModeHandler)
+  app.use('/api/auth', createAuthRouter())
+
+  // 其余 /api/*：builtin 校验自带会话, sso 只认网关注入的 X-Auth-User；缺失 → 401
   app.use('/api', requireAuthUser)
 
   app.use('/api/platforms', createPlatformsRouter())
