@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import DashboardTab from '@/components/Dashboard'
 import LogsTab from '@/components/Logs'
 import ConfigTab from '@/components/Config'
+import LoginPage from '@/components/Auth/LoginPage'
 import { useStore } from '@/store/useStore'
+import { useAuthStore } from '@/store/useAuthStore'
 
 export type TabName = 'dashboard' | 'config' | 'logs'
 
@@ -22,19 +24,46 @@ function initialTab(): TabName {
 export default function App() {
   const [tab, setTab] = useState<TabName>(initialTab)
 
-  const switchTab = (name: TabName) => {
-    setTab(name)
-    sessionStorage.setItem(TAB_KEY, name)
-  }
+  const ready = useAuthStore((s) => s.ready)
+  const mode = useAuthStore((s) => s.mode)
+  const user = useAuthStore((s) => s.user)
+  const initAuth = useAuthStore((s) => s.init)
+  const logout = useAuthStore((s) => s.logout)
 
-  // 首屏数据预载 (与旧行为一致: presets/platforms/dashboard/settings 全量加载)
+  // 启动探测认证模式 + builtin 登录态
   useEffect(() => {
+    void initAuth()
+  }, [initAuth])
+
+  // sso 模式由前置认证层保证; builtin 需已登录
+  const authenticated = mode === 'sso' || !!user
+
+  // 首屏数据预载 (已登录才加载, 避免未登录时无谓的 401)
+  useEffect(() => {
+    if (!authenticated) return
     const s = useStore.getState()
     void s.loadPresets()
     void s.loadPlatforms()
     void s.loadDashboard()
     void s.loadSettings()
-  }, [])
+  }, [authenticated])
+
+  if (!ready) return null
+  if (mode === 'builtin' && !user) return <LoginPage />
+
+  const switchTab = (name: TabName) => {
+    setTab(name)
+    sessionStorage.setItem(TAB_KEY, name)
+  }
+
+  // 退出按模式分发: builtin 清本地会话, sso 交给前置认证层
+  const onLogout = () => {
+    if (mode === 'sso') {
+      window.location.href = '/_auth/logout'
+      return
+    }
+    void logout()
+  }
 
   return (
     <>
@@ -56,6 +85,10 @@ export default function App() {
           ))}
         </nav>
         <div className="header__status">
+          {mode === 'builtin' && user && <span className="header__user">{user.name}</span>}
+          <button type="button" className="header__logout" onClick={onLogout}>
+            退出
+          </button>
           <span className="dot" />
           <span>系统正常</span>
         </div>

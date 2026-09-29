@@ -8,7 +8,7 @@
 
 npm workspaces monorepo：`server/`（TS + Express 5 + SQLite）+ `frontend/`（React 18 + Vite + TS）。
 
-生产：`quotahub.service`，`127.0.0.1:5300`，对外挂在自建子域。鉴权全部由 **Auth Gateway**（`127.0.0.1:18920`，nginx 反代进来）负责：登录 / OAuth2 / state / PKCE / 会话都在网关；`/api/*` 由网关注入 `X-Auth-User` 头，本仓库零 OAuth / token / 登录态代码。
+生产：`quotahub.service`，`127.0.0.1:5300`，对外挂在自建子域，以 `AUTH_MODE=sso` 接 **Auth Gateway**（`127.0.0.1:18920`，nginx 反代进来）：登录 / OAuth2 / state / PKCE / 会话都在网关；`/api/*` 身份来自网关注入的 `X-Auth-User` 头，本仓库零 OAuth / token 代码。**仓库默认 `AUTH_MODE=builtin`**：自带账号 + 登录页，陌生人 clone 下来开箱即用。
 
 ## 技术栈
 
@@ -25,15 +25,15 @@ npm workspaces monorepo：`server/`（TS + Express 5 + SQLite）+ `frontend/`（
 server/src/
 ├── app.ts / index.ts / config.ts / types.ts
 ├── db/{connection,init}.ts
-├── lib/{fetcher,storage}.ts        # 请求抓取（含 SSRF 防护）+ 脚本沙箱
-├── middleware/auth.ts               # 读网关注入的 X-Auth-User, 缺失 401
-├── repositories/                   # platformRepo / historyRepo / logRepo / presetRepo / settingsRepo
-├── routes/                         # platforms / presets / settings / logs / transfer
-├── services/                       # platformService / monitorService / logService / presetService / settingsService / transferService
+├── lib/{fetcher,storage,cookies}.ts # 请求抓取（含 SSRF 防护）+ 脚本沙箱 + 会话 cookie
+├── middleware/auth.ts               # 按 AUTH_MODE 分支: builtin 校验会话 / sso 读 X-Auth-User
+├── repositories/                   # platformRepo / historyRepo / logRepo / presetRepo / settingsRepo / userRepo / sessionRepo
+├── routes/                         # platforms / presets / settings / logs / transfer / auth
+├── services/                       # platformService / monitorService / logService / presetService / settingsService / transferService / authService
 └── __tests__/                      # vitest 用例
 frontend/src/
 ├── api/ store/ lib/ styles/ types.ts
-└── components/{Dashboard,Config,Logs,Transfer,TrendChart}/
+└── components/{Dashboard,Config,Logs,Transfer,TrendChart,Auth}/
 public/                             # 前端构建产物（不入库，后端 express.static 托管）
 data/                               # 运行时数据（不入库）
 scripts/migrate-json-to-sqlite.mjs
@@ -74,6 +74,12 @@ systemctl status quotahub
 - **日志**：采集/操作日志写 `data/logs.json`（`logService` → `logRepo`），**不走 console/journalctl**。journalctl 只有启动横幅，排查自动采集要看 `logs.json` 里 `action=fetch` 的记录。
 - **采样时间**：`history_samples.time` 是 **UTC ISO 字符串**，最新采样 = `MAX(time)`。
 - **显示格式**：每个平台有自己的 `format` 函数（前缀/后缀）。判断单位别用 `'%' in fmt`——opencode/commandcode 的 format 里有取模 `v % 1`，会误判成百分号。
+- **认证（`AUTH_MODE`）**：默认 `builtin`（自带账号，开箱即用），可选 `sso`（关掉自带口令，只认 `X-Auth-User`）。未设置/非法值一律 `builtin`。
+  - 分层：`middleware/auth.ts` 按模式分支 → `authService`（scrypt 哈希、会话滑动续期、按 IP 限速）→ `userRepo`/`sessionRepo`（SQLite `users`/`sessions` 表，建表在 `db/init.ts`）。**不要**把 SQL 写进 `routes/auth.ts`。
+  - `builtin` **忽略** `X-Auth-User`；`sso` **忽略**会话，只读网关注入头。两种模式都不 302、不做 OIDC 跳转。
+  - `GET /api/auth-mode` 免鉴权；`/api/auth/{login,logout,me}` 仅 builtin 存在（sso 下 404）。会话 cookie 名 `quotahub_session`（HttpOnly/SameSite=Lax，HTTPS 加 Secure），也接受 `Authorization: Bearer <token>`。
+  - 前端 `api/authMode.ts` 探测模式（**探测失败按 `sso`，绝不回退 `builtin`**）；`api/client.ts` 全局 401 按模式分发（sso 跳网关登录页且已在 `/_auth/` 不重复跳；builtin 切回本地登录页）。
+  - 首启 `users` 为空时创建管理员，口令来自 `QUOTAHUB_ADMIN_PASSWORD`，未设则随机生成并**只在启动日志打印一次**；已有用户不覆盖口令。
 
 ## 环境变量
 
@@ -84,15 +90,19 @@ systemctl status quotahub
 | `QUOTAHUB_STATIC_DIR` | 自动向上查找 `public/` | 静态前端目录覆盖 |
 | `QUOTAHUB_SCRIPT_TIMEOUT_MS` | `2000` | 沙箱脚本超时 |
 | `QUOTAHUB_ALLOW_PRIVATE` | 空 | `=1` 放行内网地址 |
+| `AUTH_MODE` | `builtin` | `builtin`（自带账号）/ `sso`（关掉自带口令，只认 `X-Auth-User`）；非法值回退 `builtin` |
+| `QUOTAHUB_ADMIN_USER` | `admin` | 首启创建的管理员用户名 |
+| `QUOTAHUB_ADMIN_PASSWORD` | 空 | 管理员口令；空则首启随机生成并只打印一次 |
+| `QUOTAHUB_SESSION_TTL_HOURS` | `12` | 自带账号会话有效期（小时） |
 
-> 鉴权不在本仓库的环境变量里：登录与 SSO 全在 Auth Gateway。本服务只读网关注入的 `X-Auth-User` 头。
+> 生产以 `AUTH_MODE=sso` 跑时，登录态完全在前置认证层，本服务不写 OAuth / token 代码。
 
 ## 安全与仓库红线
 
 - 🔒 **`data/` 曾经在旧 git 历史里被跟踪过**：`.gitignore` 对**曾跟踪**的文件无效。**任何 git 历史操作（rebase / reset --hard / cherry-pick / filter-branch）之前，必须先 `cp -r data/ /root/backups/quotahub-data-$(date +%s)`**。配置数据没有 git 兜底，丢了只能靠旧历史或用户重导。
 - 旧历史里曾有含真实 API token 的误提交（已 force push 抹除，但 clone 里可能残留）——推送前扫一遍 `sk-`、真实域名、token。
 - 前端构建产物 `public/` **不入库**（本地构建，由后端 `express.static` 托管）；仓库只提交 `.env.example`。
-- 鉴权由 Auth Gateway 负责，本仓库**不写**任何 OAuth / token / SSO / 登录态代码；源码里不得硬编码认证中心域名、部署域名或服务器 IP。
+- 鉴权分流：`builtin` 自带账号（`node:crypto` scrypt，不引入新依赖），`sso` 交给前置认证层；本仓库**不写**任何 OAuth / SSO 跳转 / 上游 token 代码；源码里不得硬编码认证中心域名、部署域名或服务器 IP。
 - 推送到公开仓库前自检：`grep -rn "<你的域名>\|<你的公网IP>\|sk-" --exclude-dir=node_modules .` 应为 0。
 
 ## 已知坑

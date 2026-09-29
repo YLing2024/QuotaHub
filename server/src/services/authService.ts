@@ -43,7 +43,7 @@ export function ensureSeedAdmin(): boolean {
     generated = true
   }
   userRepo.insert(username, hashPassword(password), new Date().toISOString())
-  console.log(`认证模式: builtin, 已创建管理员账号「${username}」`)
+  console.log(`已创建管理员账号「${username}」`)
   if (generated) {
     console.log('------------------------------------------------------------')
     console.log(`初始口令: ${password}`)
