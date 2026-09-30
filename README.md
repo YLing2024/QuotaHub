@@ -1,92 +1,104 @@
 # QuotaHub
 
-开源 LLM 平台余额监控工具 —— 统一查看各 LLM 平台的配额与余额。
+自托管的多平台 LLM 余额监控面板，统一查看各平台的配额与余额。
 
-![License](https://img.shields.io/badge/license-MIT-blue)
+## 它能做什么
 
-## 功能特性
-
-- **多平台监控面板**：卡片式展示各平台余额/用量，支持手动刷新、平台排序
-- **余额变化趋势图**：每个平台卡片上的仪表盘图标，点击弹出折线图，展示余额随时间变化。支持**时间预览条窗口选择**（拖拽窗口两端调整范围、拖内部整体平移，主图实时联动）、**鼠标悬停查看数据点详情**（十字线 + 值/时间提示）、**主图拖动平移**、**触屏/移动端操作**（Pointer Events 统一支持鼠标/触摸），以及网格刻度、首末值标注与涨跌统计
-- **自动采集（监控）**：可在「设置」中配置采集间隔（秒），每隔多久自动采集一次所有平台余额并写入历史；设为 0 秒关闭自动采集
-- **操作日志**：记录平台增删改、余额获取、导入导出、设置变更等操作，持久化保存（最多最近 2000 条），支持查看与清空
-- **任意 HTTP 接口适配**：一个「处理函数」搞定解析+提取（`function (raw) { ... }`），JSON 接口一行 `JSON.parse`，非 JSON 响应（如 opencode 的 JS 表达式协议）可在函数内用 `eval` 处理
-- **预设系统**：快速配置模板（URL / 请求头 / 处理函数模板 + 字段交互式编辑），内置 NEWAPI 预设，支持编辑/重置/导出分享
-- **导入 / 导出**：完整配置、单个平台、单个预设的 JSON 导入导出（弹窗复制粘贴，自动识别格式）
-- **显示定制**：每平台独立的前缀/后缀（如 `$8.51 USD`、`41 %`），弱化显示不抢眼
-- **本地优先**：数据存本地 JSON 文件，无数据库、无外部依赖服务
-- **可选认证**：默认自带账号密码，开箱即用；也可以关掉自带口令
-
-## 认证模式
-
-| 模式 | 说明 |
-|---|---|
-| `builtin`（默认） | 自带账号密码，首次启动自动创建管理员并在启动日志里打印一次口令 |
-| `sso` | 关掉自带口令，身份由 `X-Auth-User` 决定——自家项目接 SSO 时走这一档 |
-
-关掉后的登录跳转与 401 由你前面的认证层决定，本服务不再展开。
+- **监控面板**：按平台卡片展示最新余额与最近更新时间，可单卡刷新或整体「立即刷新」。
+- **余额趋势图**：每张卡片可打开折线图查看余额随时间的变化，支持拖动时间窗口、悬停读数，鼠标与触摸共用一套指针操作。
+- **自动采集**：在「设置」里配置采集间隔（秒），按时抓取所有平台并记录采样点；设为 0 即关闭。
+- **任意 HTTP 接口适配**：一个处理函数 `function (raw) { ... }` 同时完成解析与取值。JSON 接口可直接 `JSON.parse`；返回 JS 表达式的接口可在函数内 `eval`。
+- **预设**：内置 NEWAPI 模板，可新建 / 编辑 / 重置 / 导出预设，并交互式套用到平台配置。
+- **平台配置**：填写请求方法、URL、请求头与处理函数，可先校验再保存，并可调整平台顺序。
+- **导入导出**：完整配置、单个平台、单个预设均可导出为 JSON 并再次导入。
+- **显示格式**：每个平台独立的前缀 / 后缀，例如 `$8.51` 或 `41 %`。
+- **操作日志**：记录增删改、抓取、导入导出、设置变更等操作，最多保留 2000 条，可查看与清空。
 
 ## 快速开始
 
 ```bash
 npm install
+npm run build
 npm start
-# 打开 http://127.0.0.1:3000
+# 浏览器打开 http://127.0.0.1:3000
+```
+
+开发时前后端分别启动：
+
+```bash
+npm run dev              # 后端 tsx watch（默认 127.0.0.1:3000）
+npm run dev -w frontend  # 前端 Vite dev server，/api 代理到 127.0.0.1:3000
+```
+
+## 数据存放
+
+- `data/platforms.json`、`data/presets.json`、`data/settings.json`：平台、预设与设置。
+- `data/logs.json`：操作日志，最多 2000 条。
+- `data/monitor.db`：SQLite，存放历史采样点，以及 builtin 模式的账号与会话。
+
+从旧版 JSON 历史迁移到 SQLite：
+
+```bash
+npm run migrate
 ```
 
 ## 环境变量
 
-| 变量 | 说明 | 默认 |
+| 变量 | 默认值 | 说明 |
 |---|---|---|
-| `PORT` | 服务端口 | `3000` |
-| `HOST` | 绑定地址（默认仅本机） | `127.0.0.1` |
-| `AUTH_MODE` | 认证模式：`builtin`（默认，自带账号）/ `sso`（关掉自带口令） | `builtin` |
-| `QUOTAHUB_ADMIN_USER` | 首次启动创建的管理员用户名 | `admin` |
-| `QUOTAHUB_ADMIN_PASSWORD` | 管理员口令；留空则首次启动随机生成并打印一次 | 空 |
-| `QUOTAHUB_SESSION_TTL_HOURS` | 自带账号会话有效期（小时） | `12` |
-| `QUOTAHUB_SCRIPT_TIMEOUT_MS` | 沙箱脚本执行时长上限 | `2000`（限 100~30000） |
-| `QUOTAHUB_ALLOW_PRIVATE` | `=1` 时允许请求内网/环回地址（SSRF 防护例外，用于监控内网平台） | 空（拦截） |
-| `QUOTAHUB_DATA_DIR` | 数据目录 | `./data` |
+| `PORT` | `3000` | 服务端口 |
+| `HOST` | `127.0.0.1` | 绑定地址 |
+| `QUOTAHUB_DATA_DIR` | `<仓库根>/data` | 数据目录；相对路径按当前工作目录解析 |
+| `QUOTAHUB_STATIC_DIR` | `<仓库根>/public`（存在时启用） | 前端静态目录覆盖 |
+| `QUOTAHUB_SCRIPT_TIMEOUT_MS` | `2000` | 处理函数执行超时，钳制在 100~30000 |
+| `QUOTAHUB_ALLOW_PRIVATE` | 空 | `=1` 时允许抓取内网 / 环回地址 |
+| `AUTH_MODE` | `builtin` | 认证模式：`builtin` / `sso`；非法值回退 `builtin` |
+| `QUOTAHUB_ADMIN_USER` | `admin` | builtin 模式首启创建的管理员用户名 |
+| `QUOTAHUB_ADMIN_PASSWORD` | 空 | 该管理员口令；留空则首启随机生成并只在启动日志打印一次 |
+| `QUOTAHUB_SESSION_TTL_HOURS` | `12` | builtin 会话有效期（小时），上限 720 |
 
-## 平台配置
+仓库根与 `server/` 下有 `.env.example`，可复制为 `.env` 使用。
 
-在「平台配置」页添加平台，需要四个部分：
+## 部署
 
-1. **请求方法 / URL / 请求头**：任意 HTTP(S) 接口，凭据放在请求头（如 `Authorization: Bearer sk-xxx`）
-2. **处理函数**：`function (raw) { ... }`，`raw` 为原始响应文本，返回余额数值
-   - JSON 接口：`function (raw) { return JSON.parse(raw).balance }`
-   - 非 JSON 接口（返回 JS 表达式，如 opencode）：可在函数内用标准 `eval` 执行响应代码
-3. **显示前缀 / 后缀**：面板卡片显示格式，仅影响展示
-4. 保存后可在面板「获取余额」或「立即刷新」
+```bash
+npm run build          # server tsc + frontend vite build，前端产物写入仓库根 public/
+systemctl restart quotahub
+systemctl status quotahub
+```
 
-> 懒得手动配置？把本仓库和调用方式丢给 AI，让它按上面的配置格式生成平台 JSON，再用「导入」功能导入即可。
+- systemd 单元 `quotahub.service` 运行 `server/dist/index.js`，监听地址与端口由 `PORT` / `HOST` 等环境变量控制。
+- nginx 负责域名与 TLS，把页面和 `/api/*` 反代到本服务；域名由部署方自行配置。
 
-## 安全设计
+## 认证与安全
 
-- **处理函数沙箱**：所有函数在 Node `vm` 隔离上下文中执行，不注入任何宿主对象——`process` / `require` / `fs` 不可达，逃逸链实测封死；脚本执行有超时上限（可配），响应体限制 1MB
-- **凭据完全由用户掌控**：编辑与导出时可见完整凭据（Authorization / Cookie 等），自由修改、验证、迁移；本工具是本地单机工具，页面与接口的访问控制由本机绑定 + 认证模式保证
-- **SSRF 防护**：默认拒绝环回、内网、云元数据地址（`169.254.*` 等），仅允许 http/https
-- **默认本机绑定**：只监听 `127.0.0.1`；认证模式见上，自带账号的口令用 `node:crypto` scrypt 加盐哈希存储
-- **凭据不入库**：`data/` 目录已加入 `.gitignore`，密钥文件不会被 git 跟踪
+- `builtin`（默认）：自带账号密码，首次启动创建管理员，口令以 `node:crypto` 的 scrypt 加盐哈希存入 SQLite。会话 cookie 名 `quotahub_session`（HttpOnly、SameSite=Lax，HTTPS 下加 Secure），也接受 `Authorization: Bearer <token>`。登录失败按来源 IP 限速。
+- `sso`：不带账号口令，`/api/auth/*` 一律返回 404；`/api/*` 的身份取自前置认证网关注入的 `X-Auth-User` 头，缺失即 401。本仓库不含 OAuth / token 代码。
+- `GET /api/auth-mode` 免鉴权，供前端探测当前模式。
+- 处理函数在 Node `vm` 隔离上下文中执行，不注入宿主对象；响应体上限 1MB，执行时长受 `QUOTAHUB_SCRIPT_TIMEOUT_MS` 约束。
+- 默认拒绝环回 / 内网 / 云元数据地址，仅允许 http 与 https；确需监控内网平台时设 `QUOTAHUB_ALLOW_PRIVATE=1`。
+- 默认只监听 `127.0.0.1`；数据目录 `data/` 已被 `.gitignore` 忽略，凭据只随配置导出。
 
-## 常用 API
+## 常用接口
 
 | 接口 | 说明 |
 |---|---|
-| `GET /api/platforms/balances` | 面板数据（无凭据字段） |
-| `POST /api/platforms/refresh` | 刷新全部平台余额 |
-| `GET /api/platforms/:id/history` | 某平台余额历史采样点（折线图数据） |
-| `GET/PUT /api/settings` | 读取/更新设置（`collectIntervalSeconds` 自动采集间隔） |
-| `GET /api/logs` · `DELETE /api/logs` | 查看 / 清空操作日志 |
-| `GET /api/export` · `POST /api/import` | 配置导入导出（完整/单平台/单预设） |
-| `PUT /api/platforms/reorder` | 平台排序 |
+| `GET /api/platforms/balances` | 面板数据（不含凭据） |
+| `POST /api/platforms/refresh` | 刷新全部平台 |
+| `GET /api/platforms/:id/history` | 单平台历史采样点 |
+| `POST /api/platforms/validate` | 校验抓取配置（不保存） |
+| `PUT /api/platforms/reorder` | 调整平台顺序 |
+| `GET/PUT /api/settings` | 读取 / 更新设置，含 `collectIntervalSeconds` |
+| `GET/DELETE /api/logs` | 查看 / 清空操作日志 |
+| `GET /api/export`、`POST /api/import` | 配置导出与导入 |
 
-## 测试
+## 开发
 
 ```bash
-node test-frontend.js   # 前端 jsdom 回归测试
+npm test    # server + frontend vitest
+npm run lint
 ```
 
-## License
+## 许可
 
-MIT
+MIT License，见 `LICENSE`。
