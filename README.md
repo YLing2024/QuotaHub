@@ -1,3 +1,5 @@
+[简体中文](README.md) ｜ [English](README.en.md)
+
 # QuotaHub
 
 自托管的多平台 LLM 余额监控面板，统一查看各平台的配额与余额。
