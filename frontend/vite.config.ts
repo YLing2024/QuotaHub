@@ -28,6 +28,7 @@ export default defineConfig({
             '@codemirror/view',
             '@codemirror/lang-javascript',
             '@codemirror/lang-json',
+            '@codemirror/theme-one-dark',
           ],
         },
       },
