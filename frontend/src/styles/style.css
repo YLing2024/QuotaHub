@@ -1,65 +1,11 @@
 /* ==========================================================================
-   QuotaHub · style.css (antd 迁移中)
-   — 设计语言由 antd 5 默认主题提供; 本文件只保留布局 glue 与尚未迁移组件
-     (Transfer, 第 4 轮) 的过渡样式。
-   — Config / Logs 专属视觉规则已在第 3 轮删除。
+   QuotaHub · style.css
+   — 设计语言全部由 antd 5 默认主题提供; 本文件只保留布局 glue:
+     尺寸 / 栅格 / 间距 / 滚动容器 / CodeMirror 容器。
+     视觉样式(配色 / 圆角 / 字体 / 阴影)一律交给 antd, 不在源码里自定义。
    ========================================================================== */
 
-/* ---------- Design tokens (待第 4 轮随 Transfer 迁移一并清理) ---------- */
-:root {
-  --bg: #f7f6f3;
-  --surface: #fbfaf8;
-  --surface-2: #efece6;
-  --fg: #171512;
-  --muted: #6f6a63;
-  --faint: #9b958d;
-  --border: rgba(23, 21, 18, 0.16);
-  --line-soft: rgba(23, 21, 18, 0.1);
-  --ink: #171512;
-  --accent: #a05b0c;
-  --accent-ink: #7c4508;
-  --accent-soft: rgba(160, 91, 12, 0.08);
-  --accent-border: rgba(160, 91, 12, 0.35);
-  --danger: #dc2626;
-  --warn: #d97706;
-  --ok: #15803d;
-
-  /* aliases for legacy semantics */
-  --white: var(--bg);
-  --black: var(--fg);
-  --red: var(--danger);
-
-  --ease: cubic-bezier(0.23, 1, 0.32, 1);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #13110f;
-    --surface: #191715;
-    --surface-2: #211e1b;
-    --fg: #efeae3;
-    --muted: #a29b92;
-    --faint: #746e66;
-    --border: rgba(239, 234, 227, 0.16);
-    --line-soft: rgba(239, 234, 227, 0.09);
-    --ink: #efeae3;
-    --accent: #c77c1f;
-    --accent-ink: #d98e35;
-    --accent-soft: rgba(199, 124, 31, 0.12);
-    --accent-border: rgba(199, 124, 31, 0.4);
-    --danger: #f87171;
-    --warn: #fbbf24;
-    --ok: #4ade80;
-  }
-}
-
-/* 全局重置由 antd/reset.css 与 ConfigProvider 提供; 此处只保留不命中 antd 组件的收窄规则。 */
-a:not([class*='ant-']) {
-  color: inherit;
-  text-decoration: none;
-}
-
-/* ---------- antd 外壳布局 glue (只留尺寸/间距/对齐) ---------- */
+/* ---------- 外壳布局 glue ---------- */
 
 .qh-layout {
   min-height: 100vh;
@@ -84,6 +30,8 @@ a:not([class*='ant-']) {
   gap: 16px;
 }
 
+/* ---------- 登录页布局 glue ---------- */
+
 .qh-auth {
   display: flex;
   flex-direction: column;
@@ -101,7 +49,7 @@ a:not([class*='ant-']) {
   margin: 0;
 }
 
-/* ---------- Tabs ---------- */
+/* ---------- Tab 切换 (保持挂载, 仅显示/隐藏) ---------- */
 
 .tab {
   display: none;
@@ -111,7 +59,7 @@ a:not([class*='ant-']) {
   display: block;
 }
 
-/* ---------- Section (布局 glue: 各页 section 间距) ---------- */
+/* ---------- 内容区布局 glue ---------- */
 
 .main {
   max-width: 1200px;
@@ -123,198 +71,9 @@ a:not([class*='ant-']) {
   padding: 48px 0 64px;
 }
 
-/* ---------- CodeMirror 6 (@uiw/react-codemirror) 布局 glue ----------
+/* ---------- CodeMirror 6 (@uiw/react-codemirror) 容器 glue ----------
    外观容器改由 antd token 提供(见 CodeEditor.tsx), 此处只留高度。 */
 
 .cm-editor .cm-scroller {
   min-height: 72px;
-}
-
-/* ==========================================================================
-   以下为尚未迁移组件 (第 4 轮 Transfer) 的过渡样式, 第 4 轮清理。
-   ========================================================================== */
-
-/* ---------- Modal ---------- */
-
-.modal {
-  position: fixed;
-  inset: 0;
-  background: rgba(23, 21, 18, 0.5);
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-  display: none;
-}
-
-.modal.is-open {
-  display: flex;
-}
-
-.modal__box {
-  width: 480px;
-  max-width: calc(100vw - 48px);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  box-shadow: 0 1px 0 var(--line-soft), 0 12px 32px rgba(23, 21, 18, 0.08);
-  padding: 28px;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
-
-.modal__box--wide {
-  width: 760px;
-  max-height: calc(100vh - 64px);
-  overflow-y: auto;
-}
-
-.transfer-text {
-  height: 300px;
-  resize: vertical;
-  font-size: 12px;
-  line-height: 1.6;
-  padding: 10px 12px;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 0;
-  color: var(--fg);
-  outline: none;
-  transition: border-color 0.14s var(--ease);
-}
-
-.transfer-text:focus {
-  border-color: var(--accent);
-}
-
-.modal__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 12px;
-}
-
-.modal__title {
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: var(--fg);
-}
-
-.modal__close {
-  background: none;
-  border: none;
-  font-size: 22px;
-  font-weight: 300;
-  line-height: 1;
-  cursor: pointer;
-  color: var(--faint);
-  transition: color 0.14s var(--ease);
-}
-
-.modal__close:hover {
-  color: var(--fg);
-}
-
-.modal__desc {
-  font-size: 12px;
-  color: var(--muted);
-  line-height: 1.7;
-}
-
-.modal__desc.is-error {
-  color: var(--danger);
-}
-
-.modal__desc.is-warn {
-  color: var(--warn);
-}
-
-.modal__field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.modal__actions {
-  display: flex;
-  gap: 12px;
-  justify-content: flex-end;
-  align-items: center;
-  border-top: 1px solid var(--line-soft);
-  padding-top: 16px;
-}
-
-.btn {
-  align-self: flex-start;
-  height: 44px;
-  padding: 0 28px;
-  background: var(--fg);
-  color: var(--bg);
-  border: 1px solid var(--fg);
-  border-radius: 0;
-  font-size: 13px;
-  font-weight: 500;
-  letter-spacing: 0.06em;
-  cursor: pointer;
-  transition: background-color 0.14s var(--ease), color 0.14s var(--ease),
-    border-color 0.14s var(--ease);
-}
-
-.btn:hover:not(:disabled) {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--bg);
-}
-
-.btn:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
-
-.btn--ghost {
-  background: transparent;
-  color: var(--muted);
-  border-color: var(--border);
-  height: 32px;
-  padding: 0 16px;
-  font-size: 12px;
-}
-
-.btn--ghost:hover:not(:disabled) {
-  background: transparent;
-  color: var(--fg);
-  border-color: var(--fg);
-}
-
-.form__msg {
-  font-size: 12px;
-  letter-spacing: 0.04em;
-  color: var(--muted);
-}
-
-.form__msg.is-error {
-  color: var(--danger);
-}
-
-/* ---------- Responsive ---------- */
-
-@media (max-width: 640px) {
-  .modal__box {
-    padding: 16px;
-  }
-}
-
-/* ---------- Reduced motion ---------- */
-
-@media (prefers-reduced-motion: reduce) {
-  html {
-    scroll-behavior: auto;
-  }
-  *,
-  *::before,
-  *::after {
-    transition-duration: 0.01ms !important;
-    animation-duration: 0.01ms !important;
-  }
 }
