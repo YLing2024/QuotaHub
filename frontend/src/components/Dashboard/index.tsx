@@ -1,4 +1,17 @@
 import { useEffect, useState } from 'react'
+import {
+  Badge,
+  Button,
+  Card,
+  Col,
+  Flex,
+  Input,
+  Row,
+  Space,
+  Statistic,
+  Typography,
+  theme,
+} from 'antd'
 import type { BalanceCard } from '@/types'
 import { fmt, runFormatOnClient } from '@/lib/format'
 import { useStore } from '@/store/useStore'
@@ -7,6 +20,7 @@ import TrendChartModal from '@/components/TrendChart/TrendChartModal'
 
 const MAX_INTERVAL = 86400
 
+// 单个平台余额卡片: 名称/刷新/趋势入口与余额文本口径沿用旧实现(仅外观换成 antd)。
 function BalanceCardView({
   p,
   refreshing,
@@ -18,53 +32,53 @@ function BalanceCardView({
   onRefresh(): void
   onOpenChart(id: string, name: string): void
 }) {
+  const { token } = theme.useToken()
   const title = p.url ? (
-    <a className="card__platform" href={p.url} target="_blank" rel="noopener noreferrer" title={p.name}>
+    <a href={p.url} target="_blank" rel="noopener noreferrer" title={p.name}>
       {p.name}
     </a>
   ) : (
-    <span className="card__platform">{p.name}</span>
+    <span>{p.name}</span>
   )
   // 正常路径所有平台都应有 format: 以 format(value) 为唯一展示路径。
   // p.format 为空或执行失败(返回非字符串/抛错)时回退 fmt(p.value) —— 仅容错, 不再作为推荐形态
   const text = p.value != null && p.format ? runFormatOnClient(p.format, p.value) : null
-  const isEmpty = p.value == null && text == null
   const balanceText = text ?? (p.value != null ? fmt(p.value) : '—')
+  const foot = p.error || (p.fetchedAt ? `获取于 ${new Date(p.fetchedAt).toLocaleString('zh-CN')}` : '尚未获取')
   return (
-    <article
-      className={`card${isEmpty ? ' card--empty' : ''}${p.error ? ' card--error' : ''}`}
-    >
-      <div className="card__top">
-        {title}
-        <span className="card__top-right">
-          <button
-            type="button"
-            className="card__refresh"
+    <Card
+      size="small"
+      title={title}
+      style={p.error ? { borderColor: token.colorError } : undefined}
+      extra={
+        <Space size={4}>
+          <Button
+            size="small"
             disabled={refreshing}
             onClick={onRefresh}
             title="刷新此平台"
             aria-label="刷新此平台"
           >
             {refreshing ? '…' : '↻'}
-          </button>
+          </Button>
           {p.value != null && (
-            <button
-              type="button"
-              className="card__chart"
+            <Button
+              size="small"
               onClick={() => onOpenChart(p.id, p.name)}
               title="查看余额变化趋势"
               aria-label="查看余额变化趋势"
             >
               📊
-            </button>
+            </Button>
           )}
-        </span>
-      </div>
-      <div className="card__balance">{balanceText}</div>
-      <div className={`card__foot${p.error ? ' card__foot--error' : ''}`}>
-        {p.error || (p.fetchedAt ? `获取于 ${new Date(p.fetchedAt).toLocaleString('zh-CN')}` : '尚未获取')}
-      </div>
-    </article>
+        </Space>
+      }
+    >
+      <Space direction="vertical" size={4} style={{ width: '100%' }}>
+        <Statistic value={balanceText} />
+        <Typography.Text type={p.error ? 'danger' : 'secondary'}>{foot}</Typography.Text>
+      </Space>
+    </Card>
   )
 }
 
@@ -191,82 +205,95 @@ export default function DashboardTab() {
 
   return (
     <>
-      <section className="hero">
-        <div className="hero__meta">LLM PLATFORM · BALANCE MONITOR</div>
-        <h2 className="hero__title">LLM 平台余额监控</h2>
-        <div className="hero__line" />
-        <p className="hero__desc">
-          统一查看各 LLM 平台的配额与余额。
-          <br />
-          在「平台配置」中接入平台后，可手动获取余额。
-        </p>
+      <section className="section">
+        <Space direction="vertical" size={4}>
+          <Typography.Text type="secondary">LLM PLATFORM · BALANCE MONITOR</Typography.Text>
+          <Typography.Title level={2} style={{ margin: 0 }}>
+            LLM 平台余额监控
+          </Typography.Title>
+          <Typography.Paragraph type="secondary" style={{ margin: 0 }}>
+            统一查看各 LLM 平台的配额与余额。
+            <br />
+            在「平台配置」中接入平台后，可手动获取余额。
+          </Typography.Paragraph>
+        </Space>
       </section>
 
       <section className="section">
-        <div className="section__head">
-          <h3 className="section__title">平台余额总览</h3>
-          <div className="section__head-actions">
-            <span className="section__note">{lastUpdateText}</span>
-            <span className={`section__note${dashboard.collecting ? ' section__note--active' : ''}`}>
-              {dashboard.collecting
-                ? '自动采集 · 进行中…'
-                : sec > 0
-                  ? `自动采集 · 每 ${sec} 秒`
-                  : '自动采集 · 关闭'}
-            </span>
-          </div>
-        </div>
-        <div className="section__actions">
-          <button type="button" className="btn" disabled={refreshing} onClick={() => void doRefreshAll()}>
+        <Flex justify="space-between" align="flex-end" gap={16} wrap style={{ marginBottom: 16 }}>
+          <Typography.Title level={4} style={{ margin: 0 }}>
+            平台余额总览
+          </Typography.Title>
+          <Space size="middle" wrap>
+            <Typography.Text type="secondary">{lastUpdateText}</Typography.Text>
+            <Badge
+              status={dashboard.collecting ? 'processing' : 'default'}
+              text={
+                dashboard.collecting
+                  ? '自动采集 · 进行中…'
+                  : sec > 0
+                    ? `自动采集 · 每 ${sec} 秒`
+                    : '自动采集 · 关闭'
+              }
+            />
+          </Space>
+        </Flex>
+        <Flex justify="flex-end" style={{ marginBottom: 16 }}>
+          <Button type="primary" loading={refreshing} disabled={refreshing} onClick={() => void doRefreshAll()}>
             {refreshing ? '刷新中…' : '立即刷新'}
-          </button>
-        </div>
-        <div className="grid">
-          {items.length
-            ? items.map((p) => (
+          </Button>
+        </Flex>
+        <Row gutter={[16, 16]}>
+          {items.length ? (
+            items.map((p) => (
+              <Col key={p.id} xs={24} md={12} xl={8}>
                 <BalanceCardView
-                  key={p.id}
                   p={p}
                   refreshing={cardRefreshing.has(p.id)}
                   onRefresh={() => void refreshCard(p.id)}
                   onOpenChart={(id, name) => setChart({ id, name })}
                 />
-              ))
-            : (
-                <div className="card card--empty">
-                  <div className="card__platform">尚未配置平台</div>
-                </div>
-              )}
-        </div>
+              </Col>
+            ))
+          ) : (
+            <Col xs={24}>
+              <Card size="small">
+                <Typography.Text type="secondary">尚未配置平台</Typography.Text>
+              </Card>
+            </Col>
+          )}
+        </Row>
       </section>
 
       <section className="section">
-        <div className="section__head">
-          <h3 className="section__title">自动采集</h3>
-          <span className="section__note">AUTO COLLECTION</span>
-        </div>
-        <p className="section__desc">
-          配置每隔多久自动采集一次所有平台余额，采集结果会写入余额历史（折线图数据源）。0 秒表示关闭自动采集。
-        </p>
-        <div className="collect-row">
-          <label className="field__label" htmlFor="collect-interval">
-            采集间隔（秒）
-          </label>
-          <input
-            className="field__input collect-row__input"
-            id="collect-interval"
-            type="number"
-            min={0}
-            step={1}
-            placeholder="0"
-            value={intervalText}
-            onChange={(e) => setIntervalText(e.target.value)}
-          />
-          <button type="button" className="btn btn--ghost" disabled={savingCollect} onClick={() => void saveCollect()}>
-            保存
-          </button>
-          <span className={`form__msg${collectMsg.error ? ' is-error' : ''}`}>{collectMsg.text}</span>
-        </div>
+        <Space direction="vertical" size={8} style={{ width: '100%' }}>
+          <Flex justify="space-between" align="flex-end" gap={16} wrap>
+            <Typography.Title level={4} style={{ margin: 0 }}>
+              自动采集
+            </Typography.Title>
+            <Typography.Text type="secondary">AUTO COLLECTION</Typography.Text>
+          </Flex>
+          <Typography.Paragraph type="secondary" style={{ margin: 0 }}>
+            配置每隔多久自动采集一次所有平台余额，采集结果会写入余额历史（折线图数据源）。0 秒表示关闭自动采集。
+          </Typography.Paragraph>
+          <Space wrap align="center">
+            <Typography.Text>采集间隔（秒）</Typography.Text>
+            <Input
+              id="collect-interval"
+              type="number"
+              min={0}
+              step={1}
+              placeholder="0"
+              value={intervalText}
+              onChange={(e) => setIntervalText(e.target.value)}
+              style={{ width: 140 }}
+            />
+            <Button loading={savingCollect} disabled={savingCollect} onClick={() => void saveCollect()}>
+              保存
+            </Button>
+            <Typography.Text type={collectMsg.error ? 'danger' : undefined}>{collectMsg.text}</Typography.Text>
+          </Space>
+        </Space>
       </section>
 
       {chart && (
