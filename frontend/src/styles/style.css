@@ -645,11 +645,6 @@ a:not([class*='ant-']) {
   white-space: nowrap;
 }
 
-/* 采集进行中: 用唯一强调色点亮状态位, 与空闲态区分 */
-.section__note--active {
-  color: var(--accent);
-}
-
 .section__desc {
   font-size: 13px;
   color: var(--muted);
@@ -756,295 +751,6 @@ a:not([class*='ant-']) {
   margin-left: 8px;
 }
 
-/* ---------- Grid / Cards ---------- */
-
-.grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-}
-
-.card {
-  border: 1px solid var(--border);
-  background: var(--surface);
-  padding: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  transition: background-color 0.14s var(--ease), border-color 0.14s var(--ease);
-}
-
-.card:hover {
-  border-color: var(--line-soft);
-  background: var(--surface-2);
-}
-
-.card__top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.card__platform {
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: var(--fg);
-}
-
-a.card__platform {
-  color: inherit;
-  text-decoration: none;
-  border-bottom: 1px solid transparent;
-  transition: border-color 0.14s var(--ease), color 0.14s var(--ease);
-}
-
-a.card__platform:hover {
-  border-bottom-color: var(--accent);
-  color: var(--accent-ink);
-}
-
-.card__top-right {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.card__balance {
-  font-size: 40px;
-  font-weight: 300;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
-  font-variant-numeric: tabular-nums;
-  color: var(--fg);
-}
-
-.card__affix {
-  font-size: 14px;
-  font-weight: 400;
-  color: var(--muted);
-  letter-spacing: 0.02em;
-  margin: 0 2px;
-}
-
-.card__foot {
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  color: var(--muted);
-  border-top: 1px solid var(--line-soft);
-  padding-top: 12px;
-  word-break: break-all;
-}
-
-.card__foot--error {
-  color: var(--danger);
-}
-
-.card--error {
-  border-color: var(--danger);
-}
-
-.card--empty .card__balance {
-  color: var(--faint);
-}
-
-/* ---------- 趋势图卡片按钮 ---------- */
-
-.card__chart,
-.card__refresh {
-  background: none;
-  border: 1px solid var(--line-soft);
-  border-radius: 0;
-  width: 28px;
-  height: 28px;
-  line-height: 1;
-  cursor: pointer;
-  font-size: 13px;
-  color: var(--muted);
-  display: grid;
-  place-items: center;
-  padding: 0;
-  transition: color 0.14s var(--ease), border-color 0.14s var(--ease),
-    background-color 0.14s var(--ease);
-}
-
-.card__chart:hover,
-.card__refresh:hover:not(:disabled) {
-  color: var(--accent-ink);
-  border-color: var(--accent-border);
-  background: var(--accent-soft);
-}
-
-.card__refresh:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-/* ---------- 余额趋势图弹窗 ---------- */
-
-.chart-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-/* 时间范围档位: 直角分段控件(发丝线分隔, 选中态琥珀下边线) */
-.chart-range {
-  display: inline-flex;
-  border: 1px solid var(--border);
-  background: var(--surface);
-}
-
-.chart-range__btn {
-  padding: 6px 10px;
-  border: none;
-  border-right: 1px solid var(--line-soft);
-  background: none;
-  color: var(--muted);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: color 0.14s var(--ease), background-color 0.14s var(--ease);
-}
-
-.chart-range__btn:last-child {
-  border-right: none;
-}
-
-.chart-range__btn:hover:not(:disabled) {
-  color: var(--fg);
-}
-
-.chart-range__btn.is-active {
-  color: var(--accent-ink);
-  background: var(--accent-soft);
-  box-shadow: inset 0 -2px 0 var(--accent);
-}
-
-.chart-range__btn:disabled {
-  opacity: 0.45;
-  cursor: default;
-}
-
-/* 自定义区间: 起止时间输入行(仅选中"自定义"档时出现) */
-.chart-custom {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-top: 10px;
-}
-
-.chart-custom__field {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.chart-custom__label {
-  font-size: 10px;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--faint);
-}
-
-.chart-custom__input {
-  height: 30px;
-  padding: 0 8px;
-  border: 1px solid var(--border);
-  border-radius: 0;
-  background: var(--bg);
-  color: var(--fg);
-  font-size: 11.5px;
-  font-variant-numeric: tabular-nums;
-  outline: none;
-  transition: border-color 0.14s var(--ease);
-}
-
-.chart-custom__input:hover,
-.chart-custom__input:focus {
-  border-color: var(--accent-border);
-}
-
-.chart-custom__apply {
-  align-self: center;
-  height: 30px;
-  padding: 0 14px;
-  font-size: 12px;
-}
-
-.chart-custom__msg {
-  font-size: 11.5px;
-  color: var(--danger);
-}
-
-@media (max-width: 640px) {
-  .chart-range {
-    width: 100%;
-    overflow-x: auto;
-  }
-
-  .chart-range__btn {
-    flex: 1 0 auto;
-    padding: 8px;
-    font-size: 10.5px;
-    text-align: center;
-  }
-}
-
-/* 统计文字: 与工具栏对齐(右推) */
-.chart-stats {
-  margin-left: auto;
-  color: var(--muted);
-  font-size: 12px;
-  letter-spacing: 0.04em;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-
-@media (max-width: 640px) {
-  .chart-stats {
-    margin-left: 0;
-    width: 100%;
-    white-space: normal;
-  }
-}
-
-.chart-wrap {
-  width: 100%;
-  height: 340px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-}
-
-.chart-canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
-  /* 触屏手势: 放行竖向页面滚动, 阻止浏览器横滑手势抢占图表拖动 */
-  touch-action: pan-y;
-}
-
-/* 预览条: 主图下方全量时间缩略图 + 窗口选择(拖两端/内部平移) */
-.chart-preview-wrap {
-  margin-top: 12px;
-}
-
-.chart-preview {
-  display: block;
-  width: 100%;
-  height: 52px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  cursor: default;
-  user-select: none;
-  /* 触屏手势: 预览条为纯横向拖动, 放行竖向滚动、拦截横滑默认手势 */
-  touch-action: pan-y;
-}
-
 /* ---------- 操作日志 ---------- */
 
 .log-list {
@@ -1137,19 +843,6 @@ a.card__platform:hover {
   color: var(--bg);
 }
 
-/* ---------- 自动采集设置 ---------- */
-
-.collect-row {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.collect-row__input {
-  width: 140px;
-}
-
 .logs-note {
   margin-top: 16px;
   font-size: 12px;
@@ -1160,9 +853,6 @@ a.card__platform:hover {
 /* ---------- Responsive ---------- */
 
 @media (max-width: 900px) {
-  .grid {
-    grid-template-columns: 1fr 1fr;
-  }
   .form__row {
     grid-template-columns: 1fr;
   }
@@ -1174,9 +864,6 @@ a.card__platform:hover {
 }
 
 @media (max-width: 640px) {
-  .grid {
-    grid-template-columns: 1fr;
-  }
   .hero__title {
     font-size: 32px;
   }
@@ -1196,9 +883,6 @@ a.card__platform:hover {
   }
   .modal__box {
     padding: 16px;
-  }
-  .card__balance {
-    font-size: 32px;
   }
 }
 
