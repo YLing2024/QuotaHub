@@ -1,7 +1,8 @@
 // 导入 / 导出弹窗: 复制粘贴 JSON + 自动识别格式(完整配置/单个平台/单个预设)
-// 语义与旧 app.js transfer-modal 一致
+// 语义与旧 app.js transfer-modal 一致 (外观换成 antd Modal/Input/Button/Alert)
 
 import { useRef, useState } from 'react'
+import { Alert, Button, Input, Modal, Space, Typography } from 'antd'
 import { importConfig } from '@/api/endpoints'
 import { classifyConfig, KIND_NAME, type ConfigKind } from './classify'
 
@@ -60,7 +61,7 @@ export default function TransferModal({ request, onClose, onImported }: Props) {
   )
   const [result, setResult] = useState<{ text: string; error?: boolean }>({ text: '' })
   const [copied, setCopied] = useState(false)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const textareaRef = useRef<React.ComponentRef<typeof Input.TextArea>>(null)
 
   const onTextChange = (value: string) => {
     setText(value)
@@ -71,8 +72,8 @@ export default function TransferModal({ request, onClose, onImported }: Props) {
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(text)
-      } else if (textareaRef.current) {
-        textareaRef.current.select()
+      } else {
+        textareaRef.current?.resizableTextArea?.textArea?.select()
         document.execCommand('copy')
       }
       setCopied(true)
@@ -109,49 +110,50 @@ export default function TransferModal({ request, onClose, onImported }: Props) {
   }
 
   return (
-    <div
-      className="modal is-open"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
-    >
-      <div className="modal__box modal__box--wide">
-        <div className="modal__head">
-          <span className="modal__title">{request.title}</span>
-          <button type="button" className="modal__close" onClick={onClose}>
-            ×
-          </button>
-        </div>
-        <p className="modal__desc">{request.desc}</p>
-        <p className={`modal__desc ${detect.cls}`}>{detect.text}</p>
-        <div className="modal__field">
-          <textarea
-            ref={textareaRef}
-            className="field__code field__input--area transfer-text"
-            rows={14}
-            spellCheck={false}
-            placeholder="粘贴完整配置（含 platforms / presets）、单个平台或单个预设的 JSON…"
-            readOnly={isExport}
-            value={text}
-            onChange={(e) => onTextChange(e.target.value)}
-          />
-        </div>
-        <div className="modal__actions">
+    <Modal
+      open
+      width={760}
+      title={request.title}
+      onCancel={onClose}
+      footer={
+        <Space>
           {isExport ? (
-            <button type="button" className="btn" onClick={() => void doCopy()}>
+            <Button type="primary" onClick={() => void doCopy()}>
               {copied ? '已复制 ✓' : '一键复制'}
-            </button>
+            </Button>
           ) : (
-            <button type="button" className="btn" onClick={() => void doImport()}>
+            <Button type="primary" onClick={() => void doImport()}>
               确认导入
-            </button>
+            </Button>
           )}
-          <button type="button" className="btn btn--ghost" onClick={onClose}>
-            关闭
-          </button>
-          <span className={`form__msg${result.error ? ' is-error' : ''}`}>{result.text}</span>
-        </div>
-      </div>
-    </div>
+          <Button onClick={onClose}>关闭</Button>
+        </Space>
+      }
+    >
+      <Space direction="vertical" size={12} style={{ width: '100%' }}>
+        <Typography.Paragraph type="secondary" style={{ margin: 0 }}>
+          {request.desc}
+        </Typography.Paragraph>
+        {detect.text && (
+          <Alert
+            type={detect.cls === 'is-error' ? 'error' : detect.cls === 'is-warn' ? 'warning' : 'success'}
+            message={detect.text}
+            showIcon={false}
+          />
+        )}
+        <Input.TextArea
+          ref={textareaRef}
+          rows={14}
+          spellCheck={false}
+          placeholder="粘贴完整配置（含 platforms / presets）、单个平台或单个预设的 JSON…"
+          readOnly={isExport}
+          value={text}
+          onChange={(e) => onTextChange(e.target.value)}
+        />
+        {result.text && (
+          <Alert type={result.error ? 'error' : 'info'} message={result.text} showIcon={false} />
+        )}
+      </Space>
+    </Modal>
   )
 }
