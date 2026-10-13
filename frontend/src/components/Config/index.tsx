@@ -367,6 +367,8 @@ export default function ConfigTab() {
     {
       title: '操作',
       key: 'ops',
+      fixed: 'right',
+      width: 320,
       render: (_, p) => {
         const rm = rowMsg[p.id]
         return (
@@ -678,6 +680,7 @@ export default function ConfigTab() {
           dataSource={platforms}
           pagination={false}
           scroll={{ x: 'max-content' }}
+          sticky={{ offsetHeader: 64 }}
           locale={{ emptyText: '尚未配置任何平台' }}
           style={{ marginTop: 16 }}
         />
