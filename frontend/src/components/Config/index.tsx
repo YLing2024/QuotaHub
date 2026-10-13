@@ -17,6 +17,7 @@ import {
   Table,
   Tag,
   Typography,
+  theme,
   type InputRef,
   type TableProps,
 } from 'antd'
@@ -81,6 +82,7 @@ function fillFormState(p: Platform): FormState {
 }
 
 export default function ConfigTab() {
+  const { token } = theme.useToken()
   const { modal } = App.useApp()
   const platforms = useStore((s) => s.platforms)
   const presets = useStore((s) => s.presets)
@@ -402,7 +404,7 @@ export default function ConfigTab() {
               删除
             </Button>
             {rm?.text && (
-              <Typography.Text type={rm.error ? 'danger' : 'secondary'} style={{ fontSize: 12 }}>
+              <Typography.Text type={rm.error ? 'danger' : 'secondary'} style={{ fontSize: token.fontSizeSM }}>
                 {rm.text}
               </Typography.Text>
             )}

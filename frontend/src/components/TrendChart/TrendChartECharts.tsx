@@ -133,7 +133,7 @@ export default function TrendChartECharts({ points, winStart, winEnd, onWindowCh
             text: points.length ? '当前窗口内无采样点' : '暂无余额历史数据（获取余额后自动记录采样点）',
             left: 'center',
             top: 'middle',
-            textStyle: { color: token.colorTextSecondary, fontSize: 13, fontWeight: 400 },
+            textStyle: { color: token.colorTextSecondary, fontSize: token.fontSize },
           },
           xAxis: { show: false },
           yAxis: { show: false },
@@ -230,6 +230,7 @@ export default function TrendChartECharts({ points, winStart, winEnd, onWindowCh
     token.colorTextSecondary,
     token.colorBorderSecondary,
     token.colorSplit,
+    token.fontSize,
   ])
 
   return <div ref={containerRef} style={{ width: '100%', height: CHART_HEIGHT }} />
