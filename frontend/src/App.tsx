@@ -74,7 +74,7 @@ export default function App() {
           <Avatar shape="square" size="large">
             QH
           </Avatar>
-          <Typography.Text strong>QUOTAHUB</Typography.Text>
+          <Typography.Text strong>QuotaHub</Typography.Text>
         </Space>
 
         <Menu
@@ -109,8 +109,8 @@ export default function App() {
       </Layout.Content>
 
       <Layout.Footer className="qh-footer">
-        <Typography.Text type="secondary">QUOTAHUB © 2026</Typography.Text>
-        <Typography.Text type="secondary">OPEN SOURCE · MIT LICENSE</Typography.Text>
+        <Typography.Text type="secondary">QuotaHub © 2026</Typography.Text>
+        <Typography.Text type="secondary">Open Source · MIT License</Typography.Text>
       </Layout.Footer>
     </Layout>
   )

@@ -207,7 +207,7 @@ export default function DashboardTab() {
     <>
       <section className="section">
         <Space direction="vertical" size={4}>
-          <Typography.Text type="secondary">LLM PLATFORM · BALANCE MONITOR</Typography.Text>
+          <Typography.Text type="secondary">LLM Platform · Balance Monitor</Typography.Text>
           <Typography.Title level={2} style={{ margin: 0 }}>
             LLM 平台余额监控
           </Typography.Title>
@@ -271,7 +271,7 @@ export default function DashboardTab() {
             <Typography.Title level={4} style={{ margin: 0 }}>
               自动采集
             </Typography.Title>
-            <Typography.Text type="secondary">AUTO COLLECTION</Typography.Text>
+            <Typography.Text type="secondary">Auto Collection</Typography.Text>
           </Flex>
           <Typography.Paragraph type="secondary" style={{ margin: 0 }}>
             配置每隔多久自动采集一次所有平台余额，采集结果会写入余额历史（折线图数据源）。0 秒表示关闭自动采集。

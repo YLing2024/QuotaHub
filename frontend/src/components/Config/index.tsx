@@ -418,7 +418,7 @@ export default function ConfigTab() {
     <>
       <section className="section">
         <Space direction="vertical" size={4} style={{ width: '100%' }}>
-          <Typography.Text type="secondary">PLATFORM · CONFIGURATION</Typography.Text>
+          <Typography.Text type="secondary">Platform · Configuration</Typography.Text>
           <Typography.Title level={2} style={{ margin: 0 }}>
             平台配置
           </Typography.Title>
@@ -437,7 +437,7 @@ export default function ConfigTab() {
             快速配置
           </Typography.Title>
           <Space wrap>
-            <Typography.Text type="secondary">QUICK SETUP</Typography.Text>
+            <Typography.Text type="secondary">Quick Setup</Typography.Text>
             <Button
               onClick={() =>
                 setTransferReq({
@@ -509,7 +509,7 @@ export default function ConfigTab() {
           <Typography.Title level={4} style={{ margin: 0 }}>
             添加平台
           </Typography.Title>
-          <Typography.Text type="secondary">NEW PLATFORM</Typography.Text>
+          <Typography.Text type="secondary">New Platform</Typography.Text>
         </Flex>
         <Typography.Paragraph type="secondary" style={{ margin: '8px 0 16px' }}>
           懒得手动配置？把本仓库和调用方式丢给 AI，让它按这里的配置格式（请求方法 / URL /
@@ -656,7 +656,7 @@ export default function ConfigTab() {
             已配置平台
           </Typography.Title>
           <Space wrap>
-            <Typography.Text type="secondary">CONFIGURED · {platforms.length}</Typography.Text>
+            <Typography.Text type="secondary">Configured · {platforms.length}</Typography.Text>
             <Button
               onClick={() =>
                 setTransferReq({

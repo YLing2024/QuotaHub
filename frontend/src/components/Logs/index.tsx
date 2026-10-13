@@ -90,7 +90,7 @@ export default function LogsTab({ active }: { active: boolean }) {
     <>
       <section className="section">
         <Space direction="vertical" size={4} style={{ width: '100%' }}>
-          <Typography.Text type="secondary">OPERATION · LOGS</Typography.Text>
+          <Typography.Text type="secondary">Operation · Logs</Typography.Text>
           <Typography.Title level={2} style={{ margin: 0 }}>
             操作日志
           </Typography.Title>
@@ -108,7 +108,7 @@ export default function LogsTab({ active }: { active: boolean }) {
             日志列表
           </Typography.Title>
           <Space wrap>
-            <Typography.Text type="secondary">LOGS · {total}</Typography.Text>
+            <Typography.Text type="secondary">Logs · {total}</Typography.Text>
             <Button onClick={() => void load()}>刷新</Button>
             <Button danger onClick={() => void clearAll()}>
               清空日志

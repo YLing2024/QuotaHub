@@ -58,7 +58,7 @@ export default function LoginPage() {
               QH
             </Avatar>
             <Typography.Title level={4} className="qh-auth-title">
-              QUOTAHUB
+              QuotaHub
             </Typography.Title>
           </Space>
           <Typography.Paragraph type="secondary">登录后查看与管理平台余额。</Typography.Paragraph>
@@ -85,8 +85,8 @@ export default function LoginPage() {
       </Layout.Content>
 
       <Layout.Footer className="qh-footer qh-footer--auth">
-        <Typography.Text type="secondary">QUOTAHUB © 2026</Typography.Text>
-        <Typography.Text type="secondary">OPEN SOURCE · MIT LICENSE</Typography.Text>
+        <Typography.Text type="secondary">QuotaHub © 2026</Typography.Text>
+        <Typography.Text type="secondary">Open Source · MIT License</Typography.Text>
       </Layout.Footer>
     </Layout>
   )
