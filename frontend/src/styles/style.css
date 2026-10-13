@@ -1,11 +1,11 @@
 /* ==========================================================================
-   QuotaHub · Swiss International Typographic Style v2
-   — mirrors homepage/admin-web design system (warm paper / ink / amber)
-   — 8pt grid · translucent hairlines · square corners · one restrained accent
-   — neutrals ~90% · accent used in gaps only; function/logic untouched
+   QuotaHub · style.css (antd 迁移中)
+   — 设计语言由 antd 5 默认主题提供; 本文件只保留布局 glue 与尚未迁移组件
+     (Transfer, 第 4 轮) 的过渡样式。
+   — Config / Logs 专属视觉规则已在第 3 轮删除。
    ========================================================================== */
 
-/* ---------- Design tokens ---------- */
+/* ---------- Design tokens (待第 4 轮随 Transfer 迁移一并清理) ---------- */
 :root {
   --bg: #f7f6f3;
   --surface: #fbfaf8;
@@ -59,8 +59,6 @@ a:not([class*='ant-']) {
   text-decoration: none;
 }
 
-/* Header / 登录页外观已由 antd Layout·Menu·Form 接管, 旧视觉规则移除。 */
-
 /* ---------- antd 外壳布局 glue (只留尺寸/间距/对齐) ---------- */
 
 .qh-layout {
@@ -113,7 +111,7 @@ a:not([class*='ant-']) {
   display: block;
 }
 
-/* ---------- Hero ---------- */
+/* ---------- Section (布局 glue: 各页 section 间距) ---------- */
 
 .main {
   max-width: 1200px;
@@ -121,179 +119,20 @@ a:not([class*='ant-']) {
   padding: 0 24px;
 }
 
-.hero {
-  padding: 72px 0 56px;
-  border-bottom: 1px solid var(--border);
+.section {
+  padding: 48px 0 64px;
 }
 
-.hero__meta {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 20px;
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.hero__meta::before {
-  content: "";
-  width: 32px;
-  height: 1px;
-  background: var(--accent);
-}
-
-.hero__title {
-  font-size: clamp(36px, 5vw, 48px);
-  font-weight: 500;
-  letter-spacing: -0.02em;
-  line-height: 1.1;
-  color: var(--fg);
-}
-
-.hero__line {
-  width: 44px;
-  height: 2px;
-  background: var(--accent);
-  margin: 24px 0;
-}
-
-.hero__desc {
-  font-size: 15px;
-  line-height: 1.8;
-  color: var(--muted);
-}
-
-.hero--small {
-  padding: 56px 0 40px;
-}
-
-/* ---------- Form ---------- */
-
-.form {
-  border: 1px solid var(--border);
-  padding: 32px;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  background: var(--surface);
-}
-
-.form__row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.field__label {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--muted);
-}
-
-.field__label--hint {
-  font-size: 11px;
-  font-weight: 400;
-  letter-spacing: 0.02em;
-  text-transform: none;
-  color: var(--faint);
-  align-self: end;
-  padding-bottom: 13px;
-}
-
-.field__input {
-  height: 44px;
-  padding: 0 12px;
-  border: 1px solid var(--border);
-  border-radius: 0;
-  background: var(--bg);
-  font-size: 14px;
-  color: var(--fg);
-  outline: none;
-  transition: border-color 0.14s var(--ease), background-color 0.14s var(--ease);
-}
-
-.field__input:hover {
-  border-color: var(--faint);
-}
-
-.field__input:focus {
-  border-color: var(--accent);
-  background: var(--surface);
-}
-
-.field__input::placeholder {
-  color: var(--faint);
-}
-
-.field__input:disabled {
-  background: var(--surface-2);
-  color: var(--faint);
-  cursor: not-allowed;
-}
-
-/* ---------- CodeMirror 6 (@uiw/react-codemirror) ---------- */
-
-.cm-theme,
-.cm-editor {
-  border: 1px solid var(--border);
-  border-radius: 0;
-  background: var(--bg);
-  font-size: 13px;
-  line-height: 1.6;
-  color: var(--fg);
-  transition: border-color 0.14s var(--ease);
-}
-
-.cm-theme:hover,
-.cm-editor:hover {
-  border-color: var(--faint);
-}
-
-.cm-editor.cm-focused {
-  outline: none !important;
-  border-color: var(--accent);
-  background: var(--surface);
-}
+/* ---------- CodeMirror 6 (@uiw/react-codemirror) 布局 glue ----------
+   外观容器改由 antd token 提供(见 CodeEditor.tsx), 此处只留高度。 */
 
 .cm-editor .cm-scroller {
-  font-family: inherit;
-  line-height: inherit;
   min-height: 72px;
 }
 
-.cm-editor .cm-gutters {
-  border-right: 1px solid var(--line-soft);
-  background: transparent;
-}
-
-.cm-editor .cm-lineNumbers .cm-gutterElement {
-  color: var(--faint);
-  min-width: 34px;
-  padding: 0 6px 0 10px;
-}
-
-.cm-editor .cm-line {
-  padding: 0 4px;
-}
-
-.cm-editor.cm-readonly {
-  border-color: var(--line-soft);
-}
-
-.cm-editor.cm-readonly:hover {
-  border-color: var(--line-soft);
-}
+/* ==========================================================================
+   以下为尚未迁移组件 (第 4 轮 Transfer) 的过渡样式, 第 4 轮清理。
+   ========================================================================== */
 
 /* ---------- Modal ---------- */
 
@@ -327,45 +166,6 @@ a:not([class*='ant-']) {
   width: 760px;
   max-height: calc(100vh - 64px);
   overflow-y: auto;
-}
-
-.modal__row {
-  display: grid;
-  grid-template-columns: 120px 1fr;
-  gap: 14px;
-}
-
-/* ---------- 预设字段交互式编辑 ---------- */
-
-.pe-fields {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-height: 260px;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-
-.pe-field-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1.2fr auto;
-  gap: 8px;
-  align-items: center;
-}
-
-.pe-field-row .field__input {
-  height: 36px;
-  font-size: 13px;
-}
-
-.pe-field-row .field__input.is-invalid {
-  border-color: var(--danger);
-}
-
-.btn--sm {
-  align-self: flex-start;
-  font-size: 12px;
-  padding: 8px 14px;
 }
 
 .transfer-text {
@@ -487,16 +287,6 @@ a:not([class*='ant-']) {
   border-color: var(--fg);
 }
 
-.field--wide {
-  grid-column: 1 / -1;
-}
-
-.form__actions {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
 .form__msg {
   font-size: 12px;
   letter-spacing: 0.04em;
@@ -507,380 +297,9 @@ a:not([class*='ant-']) {
   color: var(--danger);
 }
 
-/* ---------- Table ---------- */
-
-.table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-  font-variant-numeric: tabular-nums;
-}
-
-.table th {
-  text-align: left;
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--muted);
-  border-bottom: 1px solid var(--border);
-  padding: 12px 16px;
-  white-space: nowrap;
-}
-
-.table td {
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--line-soft);
-  vertical-align: middle;
-}
-
-.table td.table__url {
-  white-space: nowrap;
-  word-break: normal;
-  overflow-wrap: normal;
-  font-size: 12px;
-}
-
-.table-scroll {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-}
-
-.table-scroll .table {
-  min-width: max-content;
-  border-collapse: separate;
-  border-spacing: 0;
-}
-
-.table-scroll .table th:last-child,
-.table-scroll .table td:last-child {
-  position: sticky;
-  right: 0;
-  background: var(--bg);
-  z-index: 1;
-}
-
-.table-scroll .table thead th:last-child {
-  z-index: 2;
-}
-
-.table td:first-child {
-  font-weight: 500;
-  letter-spacing: 0.02em;
-}
-
-.table__empty td {
-  text-align: center;
-  color: var(--faint);
-  padding: 40px 16px;
-  letter-spacing: 0.08em;
-  font-size: 12px;
-}
-
-.table__action {
-  background: none;
-  border: none;
-  color: var(--muted);
-  font-size: 12px;
-  letter-spacing: 0.04em;
-  cursor: pointer;
-  padding: 4px 6px;
-  margin-right: 4px;
-  border-bottom: 1px solid transparent;
-  transition: color 0.14s var(--ease), border-color 0.14s var(--ease);
-}
-
-.table__action:hover {
-  color: var(--accent-ink);
-  border-bottom-color: var(--accent);
-}
-
-.table__action--danger {
-  color: var(--danger);
-}
-
-.table__action--danger:hover {
-  color: var(--danger);
-  border-bottom-color: var(--danger);
-}
-
-.table__msg {
-  font-size: 11px;
-  color: var(--faint);
-  margin-left: 8px;
-}
-
-.table__msg.is-error {
-  color: var(--danger);
-}
-
-/* ---------- Section ---------- */
-
-.section {
-  padding: 48px 0 64px;
-}
-
-.section__head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 16px;
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 12px;
-  margin-bottom: 32px;
-}
-
-.section__title {
-  font-size: 20px;
-  font-weight: 500;
-  letter-spacing: -0.01em;
-  color: var(--fg);
-}
-
-.section__note {
-  font-size: 10.5px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--faint);
-  white-space: nowrap;
-}
-
-.section__desc {
-  font-size: 13px;
-  color: var(--muted);
-  letter-spacing: 0.02em;
-  line-height: 1.7;
-  margin-bottom: 20px;
-}
-
-/* ---------- 快速配置卡片 ---------- */
-
-.quick-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 16px;
-}
-
-.quick-card {
-  text-align: left;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  padding: 18px;
-  cursor: pointer;
-  font-family: inherit;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  transition: background-color 0.14s var(--ease), border-color 0.14s var(--ease);
-}
-
-.quick-card:hover {
-  background: var(--surface);
-  border-color: var(--fg);
-}
-
-.quick-card__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.quick-card__name {
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  color: var(--fg);
-}
-
-.quick-card__badge {
-  font-size: 9px;
-  font-weight: 500;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  border: 1px solid var(--line-soft);
-  color: var(--faint);
-  padding: 2px 6px;
-}
-
-.quick-card__desc {
-  font-size: 11.5px;
-  color: var(--muted);
-  letter-spacing: 0.02em;
-  line-height: 1.6;
-}
-
-.quick-card__ops {
-  border-top: 1px solid var(--line-soft);
-  padding-top: 10px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  align-items: center;
-}
-
-.section__head-actions {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.section__actions {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 12px;
-  margin: -20px 0 24px;
-  flex-wrap: wrap;
-}
-
-/* 导入导出区块: 两个按钮等高协调, 统一视觉 */
-.section__actions .btn {
-  align-self: center;
-  height: 44px;
-}
-
-.section__actions .btn--ghost {
-  height: 44px;
-  padding: 0 24px;
-  font-size: 13px;
-}
-
-.section__actions .form__msg {
-  margin-left: 8px;
-}
-
-/* ---------- 操作日志 ---------- */
-
-.log-list {
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--border);
-  max-height: 70vh;
-  overflow-y: auto;
-}
-
-.log-empty {
-  padding: 40px 16px;
-  text-align: center;
-  color: var(--faint);
-  font-size: 12px;
-  letter-spacing: 0.08em;
-}
-
-.log-item {
-  display: flex;
-  align-items: baseline;
-  gap: 16px;
-  flex-wrap: wrap;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--line-soft);
-  font-size: 12px;
-}
-
-.log-item:last-child {
-  border-bottom: none;
-}
-
-.log-item:hover {
-  background: var(--surface);
-}
-
-.log__time {
-  color: var(--muted);
-  font-size: 11px;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.log__action {
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  white-space: nowrap;
-  padding: 2px 8px;
-  border: 1px solid var(--border);
-  color: var(--muted);
-}
-
-.log__action--delete,
-.log__action--clear-logs {
-  color: var(--danger);
-  border-color: var(--danger);
-}
-
-.log__action--fetch,
-.log__action--refresh {
-  color: var(--ok);
-  border-color: var(--ok);
-}
-
-.log__detail {
-  color: var(--fg);
-  word-break: break-word;
-}
-
-.log__platform {
-  color: var(--muted);
-}
-
-.log__meta {
-  color: var(--faint);
-  font-size: 11px;
-  word-break: break-all;
-}
-
-.btn--danger {
-  color: var(--danger);
-  border-color: var(--danger);
-}
-
-.btn--danger:hover:not(:disabled) {
-  background: var(--danger);
-  border-color: var(--danger);
-  color: var(--bg);
-}
-
-.logs-note {
-  margin-top: 16px;
-  font-size: 12px;
-  color: var(--muted);
-  letter-spacing: 0.04em;
-}
-
 /* ---------- Responsive ---------- */
 
-@media (max-width: 900px) {
-  .form__row {
-    grid-template-columns: 1fr;
-  }
-  .table {
-    display: block;
-    overflow-x: auto;
-    white-space: nowrap;
-  }
-}
-
 @media (max-width: 640px) {
-  .hero__title {
-    font-size: 32px;
-  }
-  .section__actions {
-    flex-wrap: wrap;
-    justify-content: flex-start;
-  }
-  .table__action {
-    font-size: 12px;
-    letter-spacing: 0;
-    margin-right: 2px;
-    padding: 4px 4px;
-  }
-  /* 预设字段编辑器: 三列改单列 */
-  .pe-field-row {
-    grid-template-columns: 1fr;
-  }
   .modal__box {
     padding: 16px;
   }
