@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Avatar, Badge, Button, Layout, Menu, Space, Typography, theme } from 'antd'
 import DashboardTab from '@/components/Dashboard'
 import LogsTab from '@/components/Logs'
 import ConfigTab from '@/components/Config'
@@ -8,10 +9,10 @@ import { useAuthStore } from '@/store/useAuthStore'
 
 export type TabName = 'dashboard' | 'config' | 'logs'
 
-const TABS: Array<{ name: TabName; label: string }> = [
-  { name: 'dashboard', label: '监控面板' },
-  { name: 'config', label: '平台配置' },
-  { name: 'logs', label: '操作日志' },
+const TABS: Array<{ key: TabName; label: string }> = [
+  { key: 'dashboard', label: '监控面板' },
+  { key: 'config', label: '平台配置' },
+  { key: 'logs', label: '操作日志' },
 ]
 
 const TAB_KEY = 'quotahub-tab'
@@ -22,6 +23,7 @@ function initialTab(): TabName {
 }
 
 export default function App() {
+  const { token } = theme.useToken()
   const [tab, setTab] = useState<TabName>(initialTab)
 
   const ready = useAuthStore((s) => s.ready)
@@ -66,52 +68,50 @@ export default function App() {
   }
 
   return (
-    <>
-      <header className="header">
-        <div className="header__brand">
-          <span className="header__mark">QH</span>
-          <h1 className="header__title">QUOTAHUB</h1>
-        </div>
-        <nav className="header__nav">
-          {TABS.map((t) => (
-            <button
-              key={t.name}
-              type="button"
-              className={`header__link${tab === t.name ? ' is-active' : ''}`}
-              onClick={() => switchTab(t.name)}
-            >
-              {t.label}
-            </button>
-          ))}
-        </nav>
-        <div className="header__status">
-          {mode === 'builtin' && user && <span className="header__user">{user.name}</span>}
-          <button type="button" className="header__logout" onClick={onLogout}>
-            退出
-          </button>
-          <span className="dot" />
-          <span>系统正常</span>
-        </div>
-      </header>
+    <Layout className="qh-layout">
+      <Layout.Header className="qh-header" style={{ background: token.colorBgContainer }}>
+        <Space size="middle" align="center">
+          <Avatar shape="square" size="large">
+            QH
+          </Avatar>
+          <Typography.Text strong>QUOTAHUB</Typography.Text>
+        </Space>
 
-      <main className="main">
-        <div className={`tab${tab === 'dashboard' ? ' is-active' : ''}`}>
-          <DashboardTab />
-        </div>
-        {/* 平台配置页保持挂载(隐藏), CodeMirror 内容不丢 */}
-        <div className={`tab${tab === 'config' ? ' is-active' : ''}`}>
-          <ConfigTab />
-        </div>
-        {/* 日志页保持挂载, 激活时才加载(与旧版点击 tab 时加载一致) */}
-        <div className={`tab${tab === 'logs' ? ' is-active' : ''}`}>
-          <LogsTab active={tab === 'logs'} />
-        </div>
-      </main>
+        <Menu
+          mode="horizontal"
+          selectedKeys={[tab]}
+          items={TABS}
+          onClick={({ key }) => switchTab(key as TabName)}
+          className="qh-nav"
+        />
 
-      <footer className="footer">
-        <span>QUOTAHUB © 2026</span>
-        <span>OPEN SOURCE · MIT LICENSE</span>
-      </footer>
-    </>
+        <Space size="small" align="center">
+          {mode === 'builtin' && user && <Typography.Text>{user.name}</Typography.Text>}
+          <Button onClick={onLogout}>退出</Button>
+          <Badge status="success" text="系统正常" />
+        </Space>
+      </Layout.Header>
+
+      <Layout.Content>
+        <div className="main">
+          <div className={`tab${tab === 'dashboard' ? ' is-active' : ''}`}>
+            <DashboardTab />
+          </div>
+          {/* 平台配置页保持挂载(隐藏), CodeMirror 内容不丢 */}
+          <div className={`tab${tab === 'config' ? ' is-active' : ''}`}>
+            <ConfigTab />
+          </div>
+          {/* 日志页保持挂载, 激活时才加载(与旧版点击 tab 时加载一致) */}
+          <div className={`tab${tab === 'logs' ? ' is-active' : ''}`}>
+            <LogsTab active={tab === 'logs'} />
+          </div>
+        </div>
+      </Layout.Content>
+
+      <Layout.Footer className="qh-footer">
+        <Typography.Text type="secondary">QUOTAHUB © 2026</Typography.Text>
+        <Typography.Text type="secondary">OPEN SOURCE · MIT LICENSE</Typography.Text>
+      </Layout.Footer>
+    </Layout>
   )
 }

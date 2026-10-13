@@ -29,18 +29,6 @@
   --black: var(--fg);
   --red: var(--danger);
 
-  /* Type: Inter Tight Variable (display/chrome) · Inter (body) ·
-     JetBrains Mono (numerals/data/labels). Latin subsets self-hosted in
-     /fonts; CJK falls back to the system stack. */
-  --font-sans: 'Inter Tight', 'Inter', -apple-system, BlinkMacSystemFont,
-    'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei',
-    'Helvetica Neue', Arial, sans-serif;
-  --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI',
-    'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue',
-    Arial, sans-serif;
-  --font-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', SFMono-Regular,
-    Menlo, Monaco, Consolas, monospace;
-
   --ease: cubic-bezier(0.23, 1, 0.32, 1);
 }
 
@@ -65,250 +53,54 @@
   }
 }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-html {
-  font-size: 16px;
-  scroll-behavior: smooth;
-}
-
-body {
-  font-family: var(--font);
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--fg);
-  background: var(--bg);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
-  font-variant-ligatures: none;
-}
-
-::selection {
-  background: var(--ink);
-  color: var(--bg);
-}
-
-button {
-  font-family: inherit;
-}
-
-a {
+/* 全局重置由 antd/reset.css 与 ConfigProvider 提供; 此处只保留不命中 antd 组件的收窄规则。 */
+a:not([class*='ant-']) {
   color: inherit;
   text-decoration: none;
 }
 
-:focus-visible {
-  outline: 1px solid var(--accent);
-  outline-offset: 3px;
+/* Header / 登录页外观已由 antd Layout·Menu·Form 接管, 旧视觉规则移除。 */
+
+/* ---------- antd 外壳布局 glue (只留尺寸/间距/对齐) ---------- */
+
+.qh-layout {
+  min-height: 100vh;
 }
 
-/* ---------- Header ---------- */
-
-.header {
+.qh-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 24px;
-  height: 64px;
-  padding: 0 24px;
-  border-bottom: 1px solid var(--line-soft);
-  position: sticky;
-  top: 0;
-  background: color-mix(in srgb, var(--bg) 88%, transparent);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-  z-index: 10;
+  gap: 16px;
 }
 
-.header__brand {
+.qh-nav {
+  flex: 1;
+  min-width: 0;
+}
+
+.qh-footer {
   display: flex;
   align-items: center;
-  gap: 14px;
+  justify-content: space-between;
+  gap: 16px;
 }
 
-.header__mark {
-  display: grid;
-  place-items: center;
-  width: 30px;
-  height: 30px;
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--fg);
-  font-family: var(--font-sans);
-  font-weight: 600;
-  font-size: 10px;
-  letter-spacing: 1px;
-}
-
-.header__title {
-  font-family: var(--font-sans);
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: 0.3em;
-  line-height: 1;
-}
-
-.header__nav {
-  display: flex;
-  gap: 6px;
-  height: 100%;
-}
-
-.header__link {
-  display: flex;
-  align-items: center;
-  padding: 0 12px;
-  font-family: var(--font-sans);
-  font-size: 13px;
-  font-weight: 500;
-  letter-spacing: 0.06em;
-  color: var(--muted);
-  border: none;
-  border-bottom: 2px solid transparent;
-  background: none;
-  cursor: pointer;
-  transition: color 0.14s var(--ease), border-color 0.14s var(--ease);
-}
-
-.header__link:hover {
-  color: var(--fg);
-}
-
-.header__link.is-active {
-  color: var(--fg);
-  border-bottom-color: var(--accent);
-}
-
-.header__status {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-family: var(--font-mono);
-  font-size: 10.5px;
-  font-weight: 500;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--muted);
-  white-space: nowrap;
-}
-
-.dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 0;
-  background: var(--ok);
-  transform: rotate(45deg);
-  flex-shrink: 0;
-}
-
-/* 顶栏账号与退出 (builtin 模式) */
-
-.header__user {
-  color: var(--fg);
-  letter-spacing: 0.1em;
-  text-transform: none;
-}
-
-.header__logout {
-  height: 24px;
-  padding: 0 10px;
-  border: 1px solid var(--border);
-  border-radius: 0;
-  background: transparent;
-  color: var(--muted);
-  font-family: var(--font-sans);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  cursor: pointer;
-  transition: color 0.14s var(--ease), border-color 0.14s var(--ease);
-}
-
-.header__logout:hover {
-  color: var(--fg);
-  border-color: var(--fg);
-}
-
-/* ---------- Auth (本地登录页, builtin 模式) ---------- */
-
-.auth {
-  min-height: 100vh;
+.qh-auth {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 32px;
   padding: 48px 24px;
 }
 
-.auth__panel {
+.qh-auth-card {
   width: 100%;
   max-width: 360px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  padding: 40px 32px 36px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
 }
 
-.auth__brand {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
-.auth__title {
-  font-family: var(--font-sans);
-  font-size: 15px;
-  font-weight: 600;
-  letter-spacing: 0.3em;
-  line-height: 1;
-}
-
-.auth__line {
-  height: 1px;
-  background: var(--line-soft);
-}
-
-.auth__desc {
-  font-size: 13px;
-  color: var(--muted);
-}
-
-.auth__form {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  margin-top: 8px;
-}
-
-.auth__actions {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}
-
-.auth__submit {
-  align-self: auto;
-  height: 40px;
-  padding: 0 24px;
-}
-
-.auth__msg {
-  font-size: 12px;
-  letter-spacing: 0.04em;
-  color: var(--danger);
-  min-height: 1.2em;
-}
-
-.footer--auth {
-  width: 100%;
-  max-width: 360px;
+.qh-auth-title {
+  margin: 0;
 }
 
 /* ---------- Tabs ---------- */
@@ -339,7 +131,6 @@ a {
   align-items: center;
   gap: 12px;
   margin-bottom: 20px;
-  font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.22em;
@@ -355,7 +146,6 @@ a {
 }
 
 .hero__title {
-  font-family: var(--font-sans);
   font-size: clamp(36px, 5vw, 48px);
   font-weight: 500;
   letter-spacing: -0.02em;
@@ -404,7 +194,6 @@ a {
 }
 
 .field__label {
-  font-family: var(--font-sans);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.14em;
@@ -413,7 +202,6 @@ a {
 }
 
 .field__label--hint {
-  font-family: var(--font);
   font-size: 11px;
   font-weight: 400;
   letter-spacing: 0.02em;
@@ -429,7 +217,6 @@ a {
   border: 1px solid var(--border);
   border-radius: 0;
   background: var(--bg);
-  font-family: var(--font);
   font-size: 14px;
   color: var(--fg);
   outline: none;
@@ -462,7 +249,6 @@ a {
   border: 1px solid var(--border);
   border-radius: 0;
   background: var(--bg);
-  font-family: var(--font-mono);
   font-size: 13px;
   line-height: 1.6;
   color: var(--fg);
@@ -588,7 +374,6 @@ a {
   font-size: 12px;
   line-height: 1.6;
   padding: 10px 12px;
-  font-family: var(--font-mono);
   background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 0;
@@ -610,7 +395,6 @@ a {
 }
 
 .modal__title {
-  font-family: var(--font-sans);
   font-size: 14px;
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -669,7 +453,6 @@ a {
   color: var(--bg);
   border: 1px solid var(--fg);
   border-radius: 0;
-  font-family: var(--font-sans);
   font-size: 13px;
   font-weight: 500;
   letter-spacing: 0.06em;
@@ -735,7 +518,6 @@ a {
 
 .table th {
   text-align: left;
-  font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 500;
   letter-spacing: 0.14em;
@@ -756,7 +538,6 @@ a {
   white-space: nowrap;
   word-break: normal;
   overflow-wrap: normal;
-  font-family: var(--font-mono);
   font-size: 12px;
 }
 
@@ -800,7 +581,6 @@ a {
   background: none;
   border: none;
   color: var(--muted);
-  font-family: var(--font-sans);
   font-size: 12px;
   letter-spacing: 0.04em;
   cursor: pointer;
@@ -828,7 +608,6 @@ a {
   font-size: 11px;
   color: var(--faint);
   margin-left: 8px;
-  font-family: var(--font-mono);
 }
 
 .table__msg.is-error {
@@ -852,7 +631,6 @@ a {
 }
 
 .section__title {
-  font-family: var(--font-sans);
   font-size: 20px;
   font-weight: 500;
   letter-spacing: -0.01em;
@@ -860,7 +638,6 @@ a {
 }
 
 .section__note {
-  font-family: var(--font-mono);
   font-size: 10.5px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
@@ -915,7 +692,6 @@ a {
 }
 
 .quick-card__name {
-  font-family: var(--font-sans);
   font-size: 14px;
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -923,7 +699,6 @@ a {
 }
 
 .quick-card__badge {
-  font-family: var(--font-mono);
   font-size: 9px;
   font-weight: 500;
   letter-spacing: 0.1em;
@@ -1012,7 +787,6 @@ a {
 }
 
 .card__platform {
-  font-family: var(--font-sans);
   font-size: 14px;
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -1038,7 +812,6 @@ a.card__platform:hover {
 }
 
 .card__balance {
-  font-family: var(--font-sans);
   font-size: 40px;
   font-weight: 300;
   letter-spacing: -0.02em;
@@ -1130,7 +903,6 @@ a.card__platform:hover {
   border-right: 1px solid var(--line-soft);
   background: none;
   color: var(--muted);
-  font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.04em;
   white-space: nowrap;
@@ -1173,7 +945,6 @@ a.card__platform:hover {
 }
 
 .chart-custom__label {
-  font-family: var(--font-mono);
   font-size: 10px;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -1187,7 +958,6 @@ a.card__platform:hover {
   border-radius: 0;
   background: var(--bg);
   color: var(--fg);
-  font-family: var(--font-mono);
   font-size: 11.5px;
   font-variant-numeric: tabular-nums;
   outline: none;
@@ -1232,7 +1002,6 @@ a.card__platform:hover {
   font-size: 12px;
   letter-spacing: 0.04em;
   white-space: nowrap;
-  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1314,14 +1083,12 @@ a.card__platform:hover {
 
 .log__time {
   color: var(--muted);
-  font-family: var(--font-mono);
   font-size: 11px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
 .log__action {
-  font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 500;
   letter-spacing: 0.1em;
@@ -1355,7 +1122,6 @@ a.card__platform:hover {
 
 .log__meta {
   color: var(--faint);
-  font-family: var(--font-mono);
   font-size: 11px;
   word-break: break-all;
 }
@@ -1391,20 +1157,6 @@ a.card__platform:hover {
   letter-spacing: 0.04em;
 }
 
-/* ---------- Footer ---------- */
-
-.footer {
-  display: flex;
-  justify-content: space-between;
-  padding: 20px 24px;
-  border-top: 1px solid var(--line-soft);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--faint);
-}
-
 /* ---------- Responsive ---------- */
 
 @media (max-width: 900px) {
@@ -1422,27 +1174,6 @@ a.card__platform:hover {
 }
 
 @media (max-width: 640px) {
-  /* 导航保留(否则小屏无法切换到平台配置), 压缩样式腾空间 */
-  .header {
-    padding: 0 12px;
-    gap: 8px;
-  }
-  .header__title {
-    font-size: 13px;
-    letter-spacing: 0.2em;
-  }
-  .header__nav {
-    display: flex;
-    gap: 0;
-  }
-  .header__link {
-    font-size: 12px;
-    padding: 0 8px;
-    letter-spacing: 0;
-  }
-  .header__status {
-    display: none;
-  }
   .grid {
     grid-template-columns: 1fr;
   }
