@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { App, Button, Flex, List, Space, Tag, Typography } from 'antd'
 import type { LogEntry } from '@/types'
 import { clearLogs, getLogs } from '@/api/endpoints'
 
@@ -18,33 +19,36 @@ const ACTION_LABEL: Record<string, string> = {
   unknown: '其他',
 }
 
+// 与旧版一致: 删除/清空红色, 获取/刷新绿色, 其余默认
+const DANGER_ACTIONS = new Set(['delete', 'clear-logs'])
+const OK_ACTIONS = new Set(['fetch', 'refresh'])
+const tagColor = (action: string): string | undefined =>
+  DANGER_ACTIONS.has(action) ? 'red' : OK_ACTIONS.has(action) ? 'green' : undefined
+
 function LogItem({ l }: { l: LogEntry }) {
-  const platform = l.platformName ? (
-    <>
-      {' · '}
-      <span className="log__platform">{l.platformName}</span>
-    </>
-  ) : null
   const meta =
     l.meta && typeof l.meta === 'object' && Object.keys(l.meta).length ? (
-      <span className="log__meta">{JSON.stringify(l.meta)}</span>
+      <Typography.Text type="secondary">{JSON.stringify(l.meta)}</Typography.Text>
     ) : null
   return (
-    <div className="log-item">
-      <span className="log__time">{new Date(l.time).toLocaleString('zh-CN')}</span>
-      <span className={`log__action log__action--${l.action}`}>
-        {ACTION_LABEL[l.action] || l.action}
-      </span>
-      <span className="log__detail">
-        {l.detail || ''}
-        {platform}
-      </span>
-      {meta}
-    </div>
+    <List.Item>
+      <Space align="baseline" wrap size={12}>
+        <Typography.Text type="secondary" style={{ whiteSpace: 'nowrap' }}>
+          {new Date(l.time).toLocaleString('zh-CN')}
+        </Typography.Text>
+        <Tag color={tagColor(l.action)}>{ACTION_LABEL[l.action] || l.action}</Tag>
+        <Typography.Text>
+          {l.detail || ''}
+          {l.platformName && <Typography.Text type="secondary">{` · ${l.platformName}`}</Typography.Text>}
+        </Typography.Text>
+        {meta}
+      </Space>
+    </List.Item>
   )
 }
 
 export default function LogsTab({ active }: { active: boolean }) {
+  const { modal, message } = App.useApp()
   const [logs, setLogs] = useState<LogEntry[]>([])
   const [total, setTotal] = useState(0)
   const [error, setError] = useState('')
@@ -65,55 +69,60 @@ export default function LogsTab({ active }: { active: boolean }) {
     if (active) void load()
   }, [active, load])
 
-  const clearAll = async () => {
-    if (!window.confirm('确定清空所有操作日志？此操作不可撤销。')) return
-    try {
-      await clearLogs()
-      await load()
-    } catch (e) {
-      window.alert(`清空失败: ${(e as Error).message}`)
-    }
+  const clearAll = () => {
+    modal.confirm({
+      title: '确定清空所有操作日志？此操作不可撤销。',
+      okText: '清空',
+      cancelText: '取消',
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        try {
+          await clearLogs()
+          await load()
+        } catch (e) {
+          message.error(`清空失败: ${(e as Error).message}`)
+        }
+      },
+    })
   }
 
   return (
     <>
-      <section className="hero hero--small">
-        <div className="hero__meta">OPERATION · LOGS</div>
-        <h2 className="hero__title">操作日志</h2>
-        <div className="hero__line" />
-        <p className="hero__desc">
-          记录平台增删改、余额获取、导入导出、设置变更等操作。
-          <br />
-          日志持久化保存，最多保留最近 2000 条。
-        </p>
+      <section className="section">
+        <Space direction="vertical" size={4} style={{ width: '100%' }}>
+          <Typography.Text type="secondary">OPERATION · LOGS</Typography.Text>
+          <Typography.Title level={2} style={{ margin: 0 }}>
+            操作日志
+          </Typography.Title>
+          <Typography.Paragraph type="secondary" style={{ margin: 0 }}>
+            记录平台增删改、余额获取、导入导出、设置变更等操作。
+            <br />
+            日志持久化保存，最多保留最近 2000 条。
+          </Typography.Paragraph>
+        </Space>
       </section>
 
       <section className="section">
-        <div className="section__head">
-          <h3 className="section__title">日志列表</h3>
-          <div className="section__head-actions">
-            <span className="section__note">LOGS · {total}</span>
-            <button type="button" className="btn btn--ghost" onClick={() => void load()}>
-              刷新
-            </button>
-            <button
-              type="button"
-              className="btn btn--ghost btn--danger"
-              onClick={() => void clearAll()}
-            >
+        <Flex justify="space-between" align="flex-end" gap={16} wrap>
+          <Typography.Title level={4} style={{ margin: 0 }}>
+            日志列表
+          </Typography.Title>
+          <Space wrap>
+            <Typography.Text type="secondary">LOGS · {total}</Typography.Text>
+            <Button onClick={() => void load()}>刷新</Button>
+            <Button danger onClick={() => void clearAll()}>
               清空日志
-            </button>
-          </div>
-        </div>
-        <div className="log-list">
-          {error ? (
-            <div className="log-empty">{error}</div>
-          ) : logs.length ? (
-            logs.map((l) => <LogItem key={l.id} l={l} />)
-          ) : (
-            <div className="log-empty">暂无操作日志</div>
-          )}
-        </div>
+            </Button>
+          </Space>
+        </Flex>
+        <List<LogEntry>
+          bordered
+          style={{ marginTop: 16 }}
+          dataSource={error ? [] : logs}
+          locale={{ emptyText: error || '暂无操作日志' }}
+          pagination={false}
+          renderItem={(l) => <LogItem key={l.id} l={l} />}
+        />
       </section>
     </>
   )
