@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react'
-import { Avatar, Badge, Button, Layout, Menu, Space, Typography, theme } from 'antd'
+import { useEffect, useState, useSyncExternalStore } from 'react'
+import { Avatar, Badge, Button, Dropdown, Layout, Menu, Segmented, Space, Typography, theme } from 'antd'
 import DashboardTab from '@/components/Dashboard'
 import LogsTab from '@/components/Logs'
 import ConfigTab from '@/components/Config'
 import LoginPage from '@/components/Auth/LoginPage'
 import { useStore } from '@/store/useStore'
 import { useAuthStore } from '@/store/useAuthStore'
+import { setThemeMode, useThemeMode, type ThemeMode } from '@/theme'
 
 export type TabName = 'dashboard' | 'config' | 'logs'
 
@@ -22,9 +23,64 @@ function initialTab(): TabName {
   return saved === 'config' || saved === 'logs' ? saved : 'dashboard'
 }
 
+// 窄屏断点, 与 antd 的 md (768px) 对齐
+const NARROW_QUERY = '(max-width: 767.98px)'
+
+function subscribeNarrow(callback: () => void): () => void {
+  const mq = window.matchMedia(NARROW_QUERY)
+  mq.addEventListener('change', callback)
+  return () => mq.removeEventListener('change', callback)
+}
+
+function getNarrow(): boolean {
+  return window.matchMedia(NARROW_QUERY).matches
+}
+
+function useNarrow(): boolean {
+  return useSyncExternalStore(subscribeNarrow, getNarrow, () => false)
+}
+
+const THEME_OPTIONS: Array<{ value: ThemeMode; label: string }> = [
+  { value: 'auto', label: '自动' },
+  { value: 'light', label: '亮色' },
+  { value: 'dark', label: '暗色' },
+]
+
+// 主题三态切换: 宽屏内联 Segmented; 窄屏收进折叠菜单(菜单内仍是同一个 Segmented), 不挤坏顶栏。
+function ThemeSwitcher({ narrow }: { narrow: boolean }) {
+  const { token } = theme.useToken()
+  const mode = useThemeMode()
+  const onChange = (value: string | number) => setThemeMode(value as ThemeMode)
+
+  if (!narrow) {
+    return <Segmented value={mode} onChange={onChange} options={THEME_OPTIONS} />
+  }
+  return (
+    <Dropdown
+      trigger={['click']}
+      placement="bottomRight"
+      popupRender={() => (
+        <div
+          style={{
+            padding: token.paddingXS,
+            background: token.colorBgElevated,
+            borderRadius: token.borderRadiusLG,
+            boxShadow: token.boxShadowSecondary,
+          }}
+        >
+          <Segmented vertical value={mode} onChange={onChange} options={THEME_OPTIONS} />
+        </div>
+      )}
+    >
+      <Button>主题</Button>
+    </Dropdown>
+  )
+}
+
 export default function App() {
   const { token } = theme.useToken()
   const [tab, setTab] = useState<TabName>(initialTab)
+  const narrow = useNarrow()
 
   const ready = useAuthStore((s) => s.ready)
   const mode = useAuthStore((s) => s.mode)
@@ -86,9 +142,10 @@ export default function App() {
         />
 
         <Space size="small" align="center">
-          {mode === 'builtin' && user && <Typography.Text>{user.name}</Typography.Text>}
+          {!narrow && mode === 'builtin' && user && <Typography.Text>{user.name}</Typography.Text>}
+          <ThemeSwitcher narrow={narrow} />
           <Button onClick={onLogout}>退出</Button>
-          <Badge status="success" text="系统正常" />
+          {!narrow && <Badge status="success" text="系统正常" />}
         </Space>
       </Layout.Header>
 
