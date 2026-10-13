@@ -5,6 +5,15 @@
      视觉样式(配色 / 圆角 / 字体 / 阴影)一律交给 antd, 不在源码里自定义。
    ========================================================================== */
 
+/* ---------- 全局字体 (antd 默认字体栈) ----------
+   antd reset.css 把 html 设为纯 sans-serif, 这里按 antd 默认 token 恢复字体栈;
+   只设字体, 不覆盖任何颜色 / 字号 / 圆角。 */
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    'Noto Sans', sans-serif;
+}
+
 /* ---------- 外壳布局 glue ---------- */
 
 .qh-layout {
