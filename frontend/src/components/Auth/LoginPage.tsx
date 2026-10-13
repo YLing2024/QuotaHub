@@ -84,7 +84,7 @@ export default function LoginPage() {
         </Card>
       </Layout.Content>
 
-      <Layout.Footer className="qh-footer qh-footer--auth">
+      <Layout.Footer className="qh-footer">
         <Typography.Text type="secondary">QuotaHub © 2026</Typography.Text>
         <Typography.Text type="secondary">Open Source · MIT License</Typography.Text>
       </Layout.Footer>
