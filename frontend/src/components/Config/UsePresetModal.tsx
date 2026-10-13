@@ -1,7 +1,8 @@
 // 预设使用(快速配置)弹窗: 填写字段 → 渲染模板 → 生成请求配置与处理函数填入表单
-// 语义与旧 app.js use-modal 一致(校验错误显示在表单消息区)
+// 语义与旧 app.js use-modal 一致(校验错误显示在表单消息区) (外观换成 antd Modal/Form)
 
 import { useState } from 'react'
+import { Button, Form, Input, Modal, Space, Typography } from 'antd'
 import type { Preset } from '@/types'
 import { renderTemplate } from '@/lib/format'
 
@@ -49,43 +50,33 @@ export default function UsePresetModal({ preset, onConfirm, onCancel, onError }:
   }
 
   return (
-    <div
-      className="modal is-open"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onCancel()
-      }}
+    <Modal
+      open
+      title={`${preset.name} 快速配置`}
+      onCancel={onCancel}
+      footer={
+        <Space>
+          <Button type="primary" onClick={confirm}>
+            填入配置
+          </Button>
+          <Button onClick={onCancel}>取消</Button>
+        </Space>
+      }
     >
-      <div className="modal__box">
-        <div className="modal__head">
-          <span className="modal__title">{preset.name} 快速配置</span>
-          <button type="button" className="modal__close" onClick={onCancel}>
-            ×
-          </button>
-        </div>
-        <p className="modal__desc">填写后自动生成请求配置与提取函数</p>
+      <Typography.Paragraph type="secondary" style={{ marginTop: 0 }}>
+        填写后自动生成请求配置与提取函数
+      </Typography.Paragraph>
+      <Form layout="vertical">
         {preset.fields.map((f) => (
-          <div className="modal__field" key={f.key}>
-            <label className="field__label" htmlFor={`uf-${f.key}`}>
-              {f.label}
-            </label>
-            <input
-              className="field__input"
-              id={`uf-${f.key}`}
+          <Form.Item key={f.key} label={f.label}>
+            <Input
               placeholder={f.placeholder || ''}
               value={vars[f.key] ?? ''}
               onChange={(e) => setVar(f.key, e.target.value)}
             />
-          </div>
+          </Form.Item>
         ))}
-        <div className="modal__actions">
-          <button type="button" className="btn" onClick={confirm}>
-            填入配置
-          </button>
-          <button type="button" className="btn btn--ghost" onClick={onCancel}>
-            取消
-          </button>
-        </div>
-      </div>
-    </div>
+      </Form>
+    </Modal>
   )
 }

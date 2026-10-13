@@ -1,7 +1,25 @@
 // 平台配置页: 快速配置(预设系统) + 添加平台表单(CodeMirror) + 导入/导出 + 已配置平台表格
-// 语义与旧 app.js 平台配置 tab 一致
+// 语义与旧 app.js 平台配置 tab 一致 (仅外观换成 antd)
 
 import { useEffect, useRef, useState } from 'react'
+import {
+  Alert,
+  App,
+  Button,
+  Card,
+  Col,
+  Flex,
+  Form,
+  Input,
+  Row,
+  Select,
+  Space,
+  Table,
+  Tag,
+  Typography,
+  type InputRef,
+  type TableProps,
+} from 'antd'
 import type { HttpMethod, Platform, Preset } from '@/types'
 import {
   createPlatform,
@@ -63,6 +81,7 @@ function fillFormState(p: Platform): FormState {
 }
 
 export default function ConfigTab() {
+  const { modal } = App.useApp()
   const platforms = useStore((s) => s.platforms)
   const presets = useStore((s) => s.presets)
   const loadPlatforms = useStore((s) => s.loadPlatforms)
@@ -78,8 +97,8 @@ export default function ConfigTab() {
   const [validating, setValidating] = useState(false)
   const [verifyText, setVerifyText] = useState('')
 
-  const urlInputRef = useRef<HTMLInputElement>(null)
-  const formRef2 = useRef<HTMLFormElement>(null)
+  const urlInputRef = useRef<InputRef | null>(null)
+  const formRef2 = useRef<HTMLDivElement>(null)
 
   const patchForm = (patch: Partial<FormState>) => setForm((prev) => ({ ...prev, ...patch }))
 
@@ -195,7 +214,7 @@ export default function ConfigTab() {
     setUsePreset(null)
     notify(`已填入 ${name} 配置，可修改后保存`)
     requestAnimationFrame(() => {
-      urlInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      urlInputRef.current?.nativeElement?.scrollIntoView({ behavior: 'smooth', block: 'center' })
     })
   }
 
@@ -211,14 +230,21 @@ export default function ConfigTab() {
     }
   }
 
-  const deleteCustomPreset = async (preset: Preset) => {
-    if (!window.confirm(`确定删除预设「${preset.name}」？`)) return
-    try {
-      await deletePreset(preset.id)
-      await loadPresets()
-    } catch (e) {
-      notify(`删除失败: ${(e as Error).message}`, true)
-    }
+  const deleteCustomPreset = (preset: Preset) => {
+    modal.confirm({
+      title: `确定删除预设「${preset.name}」？`,
+      okText: '删除',
+      cancelText: '取消',
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        try {
+          await deletePreset(preset.id)
+          await loadPresets()
+        } catch (e) {
+          notify(`删除失败: ${(e as Error).message}`, true)
+        }
+      },
+    })
   }
 
   // ---- 预设编辑弹窗 (null=关闭; {preset:null}=新增) ----
@@ -271,16 +297,23 @@ export default function ConfigTab() {
     }
   }
 
-  const removeRowPlatform = async (id: string, name: string) => {
-    if (!window.confirm(`确定删除平台「${name}」？`)) return
-    try {
-      await deletePlatform(id)
-      if (editingId === id) clearForm()
-      await loadPlatforms()
-      await loadDashboard()
-    } catch (err) {
-      setRowMessage(id, (err as Error).message, true)
-    }
+  const removeRowPlatform = (id: string, name: string) => {
+    modal.confirm({
+      title: `确定删除平台「${name}」？`,
+      okText: '删除',
+      cancelText: '取消',
+      okButtonProps: { danger: true },
+      onOk: async () => {
+        try {
+          await deletePlatform(id)
+          if (editingId === id) clearForm()
+          await loadPlatforms()
+          await loadDashboard()
+        } catch (err) {
+          setRowMessage(id, (err as Error).message, true)
+        }
+      },
+    })
   }
 
   // ---- 导入导出 ----
@@ -316,28 +349,94 @@ export default function ConfigTab() {
     void loadPlatforms()
   }, [loadPresets, loadPlatforms])
 
+  // ---- 已配置平台表格列 ----
+
+  const columns: TableProps<Platform>['columns'] = [
+    { title: '平台', dataIndex: 'name', key: 'name' },
+    {
+      title: 'URL',
+      key: 'url',
+      render: (_, p) => (
+        <Typography.Text style={{ whiteSpace: 'nowrap' }} title={p.request?.url || ''}>
+          {p.request?.url || '—'}
+        </Typography.Text>
+      ),
+    },
+    {
+      title: '操作',
+      key: 'ops',
+      render: (_, p) => {
+        const rm = rowMsg[p.id]
+        return (
+          <Space size={0} wrap>
+            <Button type="link" size="small" title="上移" onClick={() => void movePlatform(p.id, -1)}>
+              ↑
+            </Button>
+            <Button type="link" size="small" title="下移" onClick={() => void movePlatform(p.id, 1)}>
+              ↓
+            </Button>
+            <Button type="link" size="small" onClick={() => startEdit(p.id)}>
+              编辑
+            </Button>
+            <Button
+              type="link"
+              size="small"
+              onClick={() =>
+                setTransferReq({
+                  mode: 'export',
+                  title: `导出平台：${p.name}`,
+                  desc: '复制以下 JSON 即可分享或备份',
+                  text: JSON.stringify(p, null, 2),
+                })
+              }
+            >
+              导出
+            </Button>
+            <Button type="link" size="small" onClick={() => void testRow(p.id)}>
+              测试连接
+            </Button>
+            <Button type="link" size="small" onClick={() => void fetchRow(p.id)}>
+              获取余额
+            </Button>
+            <Button type="link" size="small" danger onClick={() => void removeRowPlatform(p.id, p.name)}>
+              删除
+            </Button>
+            {rm?.text && (
+              <Typography.Text type={rm.error ? 'danger' : 'secondary'} style={{ fontSize: 12 }}>
+                {rm.text}
+              </Typography.Text>
+            )}
+          </Space>
+        )
+      },
+    },
+  ]
+
   return (
     <>
-      <section className="hero hero--small">
-        <div className="hero__meta">PLATFORM · CONFIGURATION</div>
-        <h2 className="hero__title">平台配置</h2>
-        <div className="hero__line" />
-        <p className="hero__desc">
-          添加需要监控的 LLM 平台，填写凭据与余额接口信息。
-          <br />
-          配置保存功能建设中。
-        </p>
+      <section className="section">
+        <Space direction="vertical" size={4} style={{ width: '100%' }}>
+          <Typography.Text type="secondary">PLATFORM · CONFIGURATION</Typography.Text>
+          <Typography.Title level={2} style={{ margin: 0 }}>
+            平台配置
+          </Typography.Title>
+          <Typography.Paragraph type="secondary" style={{ margin: 0 }}>
+            添加需要监控的 LLM 平台，填写凭据与余额接口信息。
+            <br />
+            配置保存功能建设中。
+          </Typography.Paragraph>
+        </Space>
       </section>
 
       {/* ========== 快速配置 ========== */}
       <section className="section">
-        <div className="section__head">
-          <h3 className="section__title">快速配置</h3>
-          <div className="section__head-actions">
-            <span className="section__note">QUICK SETUP</span>
-            <button
-              type="button"
-              className="btn btn--ghost"
+        <Flex justify="space-between" align="flex-end" gap={16} wrap>
+          <Typography.Title level={4} style={{ margin: 0 }}>
+            快速配置
+          </Typography.Title>
+          <Space wrap>
+            <Typography.Text type="secondary">QUICK SETUP</Typography.Text>
+            <Button
               onClick={() =>
                 setTransferReq({
                   mode: 'import',
@@ -348,197 +447,144 @@ export default function ConfigTab() {
               }
             >
               导入预设
-            </button>
-            <button type="button" className="btn btn--ghost" onClick={() => setPresetModal(null)}>
-              + 添加预设
-            </button>
-          </div>
-        </div>
-        <p className="section__desc">
+            </Button>
+            <Button onClick={() => setPresetModal(null)}>+ 添加预设</Button>
+          </Space>
+        </Flex>
+        <Typography.Paragraph type="secondary" style={{ margin: '8px 0 16px' }}>
           点击预设卡片生成配置，可在下方表单中再修改；预设本身支持编辑，内置预设可重置为默认
-        </p>
-        <div className="quick-grid">
+        </Typography.Paragraph>
+        <Row gutter={[16, 16]}>
           {presets.map((p) => (
-            <div
-              key={p.id}
-              className="quick-card"
-              onClick={(e) => {
-                if ((e.target as HTMLElement).closest('[data-op]')) return
-                setUsePreset(p)
-              }}
-            >
-              <div className="quick-card__head">
-                <span className="quick-card__name">{p.name}</span>
-                {p.builtin && <span className="quick-card__badge">内置</span>}
-              </div>
-              <span className="quick-card__desc">{p.fields.map((f) => f.label).join(' · ')}</span>
-              <div className="quick-card__ops">
-                <button type="button" className="table__action" data-op="edit" onClick={() => setPresetModal(p)}>
-                  编辑
-                </button>
-                <button
-                  type="button"
-                  className="table__action"
-                  data-op="export"
-                  onClick={() =>
-                    setTransferReq({
-                      mode: 'export',
-                      title: `导出预设：${p.name}`,
-                      desc: '复制以下 JSON 即可分享或备份',
-                      text: JSON.stringify(p, null, 2),
-                    })
-                  }
-                >
-                  导出
-                </button>
-                {p.builtin ? (
-                  <button
-                    type="button"
-                    className="table__action"
-                    data-op="reset"
-                    onClick={() => void resetBuiltinPreset(p)}
-                  >
-                    重置默认
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="table__action table__action--danger"
-                    data-op="delete"
-                    onClick={() => void deleteCustomPreset(p)}
-                  >
-                    删除
-                  </button>
-                )}
-              </div>
-            </div>
+            <Col key={p.id} xs={24} sm={12} lg={8}>
+              <Card
+                size="small"
+                hoverable
+                title={p.name}
+                extra={p.builtin ? <Tag>内置</Tag> : null}
+                onClick={() => setUsePreset(p)}
+              >
+                <Typography.Text type="secondary">{p.fields.map((f) => f.label).join(' · ')}</Typography.Text>
+                <div onClick={(e) => e.stopPropagation()} style={{ marginTop: 12 }}>
+                  <Space size={0} wrap>
+                    <Button type="link" size="small" onClick={() => setPresetModal(p)}>
+                      编辑
+                    </Button>
+                    <Button
+                      type="link"
+                      size="small"
+                      onClick={() =>
+                        setTransferReq({
+                          mode: 'export',
+                          title: `导出预设：${p.name}`,
+                          desc: '复制以下 JSON 即可分享或备份',
+                          text: JSON.stringify(p, null, 2),
+                        })
+                      }
+                    >
+                      导出
+                    </Button>
+                    {p.builtin ? (
+                      <Button type="link" size="small" onClick={() => void resetBuiltinPreset(p)}>
+                        重置默认
+                      </Button>
+                    ) : (
+                      <Button type="link" size="small" danger onClick={() => deleteCustomPreset(p)}>
+                        删除
+                      </Button>
+                    )}
+                  </Space>
+                </div>
+              </Card>
+            </Col>
           ))}
-        </div>
+        </Row>
       </section>
 
       {/* ========== 添加平台表单 ========== */}
       <section className="section">
-        <div className="section__head">
-          <h3 className="section__title">添加平台</h3>
-          <span className="section__note">NEW PLATFORM</span>
-        </div>
-        <p className="section__desc">
+        <Flex justify="space-between" align="flex-end" gap={16} wrap>
+          <Typography.Title level={4} style={{ margin: 0 }}>
+            添加平台
+          </Typography.Title>
+          <Typography.Text type="secondary">NEW PLATFORM</Typography.Text>
+        </Flex>
+        <Typography.Paragraph type="secondary" style={{ margin: '8px 0 16px' }}>
           懒得手动配置？把本仓库和调用方式丢给 AI，让它按这里的配置格式（请求方法 / URL /
           请求头 / 处理函数）帮你生成平台配置，然后通过下方「导入 / 导出」导入即可。
-        </p>
+        </Typography.Paragraph>
 
-        <form
-          ref={formRef2}
-          className="form"
-          onSubmit={(e) => {
-            e.preventDefault()
-            void save()
-          }}
-        >
-          <div className="form__row">
-            <div className="field field--wide">
-              <label className="field__label" htmlFor="f-name">
-                平台名称
-              </label>
-              <input
-                className="field__input"
-                id="f-name"
+        <div ref={formRef2}>
+          <Form layout="vertical" onFinish={() => void save()}>
+            <Form.Item label="平台名称">
+              <Input
                 placeholder="DeepSeek"
                 value={form.name}
                 onChange={(e) => patchForm({ name: e.target.value })}
               />
-            </div>
-          </div>
-          <div className="form__row">
-            <div className="field field--wide">
-              <label className="field__label" htmlFor="f-homepage">
-                平台主页 URL
-              </label>
-              <input
-                className="field__input"
-                id="f-homepage"
+            </Form.Item>
+            <Form.Item label="平台主页 URL">
+              <Input
                 placeholder="https://platform.example.com"
                 value={form.homepage}
                 onChange={(e) => patchForm({ homepage: e.target.value })}
               />
-            </div>
-          </div>
-          <div className="form__row">
-            <div className="field">
-              <label className="field__label" htmlFor="f-method">
-                请求方法
-              </label>
-              <select
-                className="field__input"
-                id="f-method"
-                value={form.method}
-                onChange={(e) => patchForm({ method: e.target.value as HttpMethod })}
-              >
-                <option>GET</option>
-                <option>POST</option>
-              </select>
-            </div>
-            <div className="field">
-              <label className="field__label" htmlFor="f-body">
-                请求体（JSON，仅 POST）
-              </label>
-              <input
-                className="field__input"
-                id="f-body"
-                placeholder='{"api_key": "sk-xxx"}'
-                disabled={form.method !== 'POST'}
-                value={form.bodyText}
-                onChange={(e) => patchForm({ bodyText: e.target.value })}
-              />
-            </div>
-          </div>
-          <div className="form__row">
-            <div className="field field--wide">
-              <label className="field__label" htmlFor="f-url">
-                请求 URL
-              </label>
-              <input
+            </Form.Item>
+            <Row gutter={16}>
+              <Col xs={24} md={12}>
+                <Form.Item label="请求方法">
+                  <Select
+                    value={form.method}
+                    onChange={(v) => patchForm({ method: v })}
+                    options={[
+                      { value: 'GET', label: 'GET' },
+                      { value: 'POST', label: 'POST' },
+                    ]}
+                  />
+                </Form.Item>
+              </Col>
+              <Col xs={24} md={12}>
+                <Form.Item label="请求体（JSON，仅 POST）">
+                  <Input
+                    placeholder='{"api_key": "sk-xxx"}'
+                    disabled={form.method !== 'POST'}
+                    value={form.bodyText}
+                    onChange={(e) => patchForm({ bodyText: e.target.value })}
+                  />
+                </Form.Item>
+              </Col>
+            </Row>
+            <Form.Item label="请求 URL">
+              <Input
                 ref={urlInputRef}
-                className="field__input"
-                id="f-url"
                 placeholder="https://api.deepseek.com/user/balance"
                 value={form.url}
                 onChange={(e) => patchForm({ url: e.target.value })}
               />
-            </div>
-          </div>
-          <div className="form__row">
-            <div className="field field--wide">
-              <label className="field__label">请求头（JSON）</label>
+            </Form.Item>
+            <Form.Item label="请求头（JSON）">
               <CodeEditor
                 value={form.headersText}
                 mode="json"
                 onChange={(v) => patchForm({ headersText: v })}
                 onModEnter={() => void validate()}
               />
-            </div>
-          </div>
-          <div className="form__row">
-            <div className="field field--wide">
-              <label className="field__label">
-                处理函数（raw 为原始响应文本，在函数内自由解析并返回余额）
-              </label>
+            </Form.Item>
+            <Form.Item
+              label="处理函数（raw 为原始响应文本，在函数内自由解析并返回余额）"
+              extra="返回余额数值（number），不要拼单位；单位 / 前后缀 / 小数位写在右侧「显示格式函数」里"
+            >
               <CodeEditor
                 value={form.handlerText}
                 mode="js"
                 onChange={(v) => patchForm({ handlerText: v })}
                 onModEnter={() => void validate()}
               />
-              <span className="field__label field__label--hint">
-                返回余额数值（number），不要拼单位；单位 / 前后缀 / 小数位写在右侧「显示格式函数」里
-              </span>
-            </div>
-          </div>
-          <div className="form__row">
-            <div className="field field--wide">
-              <label className="field__label">
-                显示格式函数（必填，入参 v 为处理函数返回的数值，返回最终展示字符串）
-              </label>
+            </Form.Item>
+            <Form.Item
+              label="显示格式函数（必填，入参 v 为处理函数返回的数值，返回最终展示字符串）"
+              extra="示例：v.toFixed(4) + 'G'（流量）、'¥' + v.toFixed(2) + '元'、v.toLocaleString('zh-CN')（千分位）；函数返回非字符串或抛错时卡片回退显示原始数值"
+            >
               <CodeEditor
                 value={form.formatText}
                 mode="js"
@@ -546,57 +592,45 @@ export default function ConfigTab() {
                 onChange={(v) => patchForm({ formatText: v })}
                 onModEnter={() => void validate()}
               />
-              <span className="field__label field__label--hint">
-                示例：v.toFixed(4) + 'G'（流量）、'¥' + v.toFixed(2) + '元'、v.toLocaleString('zh-CN')
-                （千分位）；函数返回非字符串或抛错时卡片回退显示原始数值
-              </span>
-            </div>
-          </div>
-          <div className="form__actions">
-            <button type="submit" className="btn">
-              {editingId ? '更新配置' : '保存配置'}
-            </button>
-            {editingId && (
-              <button type="button" className="btn btn--ghost" onClick={cancelEdit}>
-                取消编辑
-              </button>
+            </Form.Item>
+            <Space wrap>
+              <Button type="primary" htmlType="submit">
+                {editingId ? '更新配置' : '保存配置'}
+              </Button>
+              {editingId && <Button onClick={cancelEdit}>取消编辑</Button>}
+              <Button disabled={validating} loading={validating} onClick={() => void validate()}>
+                验证
+              </Button>
+            </Space>
+            {formMsg.text && (
+              <div style={{ marginTop: 16 }}>
+                <Alert type={formMsg.error ? 'error' : 'info'} message={formMsg.text} showIcon={false} />
+              </div>
             )}
-            <button
-              type="button"
-              className="btn btn--ghost"
-              disabled={validating}
-              onClick={() => void validate()}
-            >
-              验证
-            </button>
-            <span className={`form__msg${formMsg.error ? ' is-error' : ''}`}>{formMsg.text}</span>
-          </div>
-          <div className="form__row">
-            <div className="field field--wide">
-              <label className="field__label">验证输出</label>
+            <Form.Item label="验证输出" style={{ marginTop: 16 }}>
               <CodeEditor value={verifyText} mode="json" readOnly />
-            </div>
-          </div>
-        </form>
+            </Form.Item>
+          </Form>
+        </div>
       </section>
 
       {/* ========== 导入 / 导出 ========== */}
       <section className="section">
-        <div className="section__head">
-          <h3 className="section__title">导入 / 导出</h3>
-          <span className="section__note">JSON</span>
-        </div>
-        <p className="section__desc">
+        <Flex justify="space-between" align="flex-end" gap={16} wrap>
+          <Typography.Title level={4} style={{ margin: 0 }}>
+            导入 / 导出
+          </Typography.Title>
+          <Typography.Text type="secondary">JSON</Typography.Text>
+        </Flex>
+        <Typography.Paragraph type="secondary" style={{ margin: '8px 0 16px' }}>
           导出完整配置（全部平台 +
           预设）用于备份或迁移；也支持单个平台 / 单个预设的导出与导入。导入时按 id 合并，同名配置会被覆盖。
-        </p>
-        <div className="section__actions">
-          <button type="button" className="btn" onClick={() => void exportAll()}>
+        </Typography.Paragraph>
+        <Space wrap align="center">
+          <Button type="primary" onClick={() => void exportAll()}>
             导出完整配置
-          </button>
-          <button
-            type="button"
-            className="btn btn--ghost"
+          </Button>
+          <Button
             onClick={() =>
               setTransferReq({
                 mode: 'import',
@@ -606,20 +640,22 @@ export default function ConfigTab() {
             }
           >
             导入配置
-          </button>
-          <span className={`form__msg${transferMsg.error ? ' is-error' : ''}`}>{transferMsg.text}</span>
-        </div>
+          </Button>
+          {transferMsg.text && (
+            <Typography.Text type={transferMsg.error ? 'danger' : 'secondary'}>{transferMsg.text}</Typography.Text>
+          )}
+        </Space>
       </section>
 
       {/* ========== 已配置平台 ========== */}
       <section className="section">
-        <div className="section__head">
-          <h3 className="section__title">已配置平台</h3>
-          <div className="section__head-actions">
-            <span className="section__note">CONFIGURED · {platforms.length}</span>
-            <button
-              type="button"
-              className="btn btn--ghost"
+        <Flex justify="space-between" align="flex-end" gap={16} wrap>
+          <Typography.Title level={4} style={{ margin: 0 }}>
+            已配置平台
+          </Typography.Title>
+          <Space wrap>
+            <Typography.Text type="secondary">CONFIGURED · {platforms.length}</Typography.Text>
+            <Button
               onClick={() =>
                 setTransferReq({
                   mode: 'import',
@@ -630,89 +666,19 @@ export default function ConfigTab() {
               }
             >
               导入平台
-            </button>
-          </div>
-        </div>
+            </Button>
+          </Space>
+        </Flex>
 
-        <div className="table-scroll">
-          <table className="table">
-            <thead>
-              <tr>
-                <th>平台</th>
-                <th>URL</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {!platforms.length ? (
-                <tr className="table__empty">
-                  <td colSpan={3}>尚未配置任何平台</td>
-                </tr>
-              ) : (
-                platforms.map((p) => {
-                  const rm = rowMsg[p.id]
-                  return (
-                    <tr key={p.id}>
-                      <td>{p.name}</td>
-                      <td className="table__url" title={p.request?.url || ''}>
-                        {p.request?.url || '—'}
-                      </td>
-                      <td>
-                        <button
-                          type="button"
-                          className="table__action"
-                          title="上移"
-                          onClick={() => void movePlatform(p.id, -1)}
-                        >
-                          ↑
-                        </button>
-                        <button
-                          type="button"
-                          className="table__action"
-                          title="下移"
-                          onClick={() => void movePlatform(p.id, 1)}
-                        >
-                          ↓
-                        </button>
-                        <button type="button" className="table__action" onClick={() => startEdit(p.id)}>
-                          编辑
-                        </button>
-                        <button
-                          type="button"
-                          className="table__action"
-                          onClick={() =>
-                            setTransferReq({
-                              mode: 'export',
-                              title: `导出平台：${p.name}`,
-                              desc: '复制以下 JSON 即可分享或备份',
-                              text: JSON.stringify(p, null, 2),
-                            })
-                          }
-                        >
-                          导出
-                        </button>
-                        <button type="button" className="table__action" onClick={() => void testRow(p.id)}>
-                          测试连接
-                        </button>
-                        <button type="button" className="table__action" onClick={() => void fetchRow(p.id)}>
-                          获取余额
-                        </button>
-                        <button
-                          type="button"
-                          className="table__action table__action--danger"
-                          onClick={() => void removeRowPlatform(p.id, p.name)}
-                        >
-                          删除
-                        </button>
-                        <span className={`table__msg${rm?.error ? ' is-error' : ''}`}>{rm?.text}</span>
-                      </td>
-                    </tr>
-                  )
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+        <Table<Platform>
+          rowKey="id"
+          columns={columns}
+          dataSource={platforms}
+          pagination={false}
+          scroll={{ x: 'max-content' }}
+          locale={{ emptyText: '尚未配置任何平台' }}
+          style={{ marginTop: 16 }}
+        />
       </section>
 
       {/* ========== 弹窗 ========== */}

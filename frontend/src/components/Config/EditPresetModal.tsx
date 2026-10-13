@@ -1,7 +1,8 @@
 // 预设编辑弹窗: 名称/交互式字段行/方法/URL模板/请求头模板(CodeMirror)/提取函数模板(CodeMirror)
-// 内置预设支持"重置为默认"; 语义与旧 app.js preset-modal 一致
+// 内置预设支持"重置为默认"; 语义与旧 app.js preset-modal 一致 (外观换成 antd Modal/Form)
 
 import { useMemo, useState } from 'react'
+import { Button, Col, Form, Input, Modal, Row, Select, Space } from 'antd'
 import type { HttpMethod, Preset } from '@/types'
 import { createPreset, resetPreset, updatePreset } from '@/api/endpoints'
 import CodeEditor from './CodeEditor'
@@ -128,125 +129,108 @@ export default function EditPresetModal({ preset, onClose, onNotify, onSaved }: 
   }
 
   return (
-    <div
-      className="modal is-open"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
+    <Modal
+      open
+      width={760}
+      title={preset ? `编辑预设：${preset.name}` : '添加预设'}
+      onCancel={onClose}
+      footer={
+        <Space>
+          <Button type="primary" onClick={() => void save()}>
+            保存预设
+          </Button>
+          {builtin && (
+            <Button onClick={() => void doReset()}>
+              重置为默认
+            </Button>
+          )}
+          <Button onClick={onClose}>取消</Button>
+        </Space>
+      }
     >
-      <div className="modal__box modal__box--wide">
-        <div className="modal__head">
-          <span className="modal__title">{preset ? `编辑预设：${preset.name}` : '添加预设'}</span>
-          <button type="button" className="modal__close" onClick={onClose}>
-            ×
-          </button>
-        </div>
-        <div className="modal__field">
-          <label className="field__label" htmlFor="pe-name">
-            预设名称
-          </label>
-          <input
-            className="field__input"
-            id="pe-name"
-            placeholder="NEWAPI"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-        </div>
-        <div className="modal__field">
-          <span className="field__label">
-            字段（key 与显示名称必填；key 用于 URL / 请求头 / 提取函数模板中的 {'{{key}}'} 替换）
-          </span>
-          <div className="pe-fields">
+      <Form layout="vertical">
+        <Form.Item label="预设名称">
+          <Input placeholder="NEWAPI" value={name} onChange={(e) => setName(e.target.value)} />
+        </Form.Item>
+
+        <Form.Item
+          label={`字段（key 与显示名称必填；key 用于 URL / 请求头 / 提取函数模板中的 {{key}} 替换）`}
+        >
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 8,
+              maxHeight: 260,
+              overflowY: 'auto',
+              paddingRight: 4,
+            }}
+          >
             {rows.map((row, idx) => (
-              <div className="pe-field-row" key={idx}>
-                <input
-                  className="field__input"
+              <Space key={idx} align="center" style={{ display: 'flex' }}>
+                <Input
+                  style={{ width: 160 }}
                   placeholder="字段 key，如 baseUrl"
                   value={row.key}
                   onChange={(e) => setRow(idx, { key: e.target.value })}
                 />
-                <input
-                  className="field__input"
+                <Input
+                  style={{ width: 160 }}
                   placeholder="显示名称，如 请求地址"
                   value={row.label}
                   onChange={(e) => setRow(idx, { label: e.target.value })}
                 />
-                <input
-                  className="field__input"
+                <Input
+                  style={{ flex: 1, minWidth: 160 }}
                   placeholder="输入提示（可留空）"
                   value={row.placeholder}
                   onChange={(e) => setRow(idx, { placeholder: e.target.value })}
                 />
-                <button
-                  type="button"
-                  className="table__action table__action--danger"
-                  onClick={() => removeRow(idx)}
-                >
+                <Button type="link" danger onClick={() => removeRow(idx)}>
                   删除
-                </button>
-              </div>
+                </Button>
+              </Space>
             ))}
           </div>
-          <button type="button" className="btn btn--ghost btn--sm" onClick={addRow}>
+          <Button style={{ marginTop: 8 }} onClick={addRow}>
             + 添加字段
-          </button>
-        </div>
-        <div className="modal__row">
-          <div className="modal__field">
-            <label className="field__label" htmlFor="pe-method">
-              请求方法
-            </label>
-            <select
-              className="field__input"
-              id="pe-method"
-              value={method}
-              onChange={(e) => setMethod(e.target.value as HttpMethod)}
-            >
-              <option>GET</option>
-              <option>POST</option>
-            </select>
-          </div>
-          <div className="modal__field">
-            <label className="field__label" htmlFor="pe-url">
-              URL 模板（支持 {'{{字段key}}'}）
-            </label>
-            <input
-              className="field__input"
-              id="pe-url"
-              placeholder="{{baseUrl}}/api/user/self"
-              value={urlTemplate}
-              onChange={(e) => setUrlTemplate(e.target.value)}
-            />
-          </div>
-        </div>
-        <div className="modal__field">
-          <span className="field__label">
-            请求头模板（JSON，支持 {'{{字段key}}'}，留空值自动移除）
-          </span>
+          </Button>
+        </Form.Item>
+
+        <Row gutter={16}>
+          <Col xs={24} md={8}>
+            <Form.Item label="请求方法">
+              <Select
+                value={method}
+                onChange={(v) => setMethod(v)}
+                options={[
+                  { value: 'GET', label: 'GET' },
+                  { value: 'POST', label: 'POST' },
+                ]}
+              />
+            </Form.Item>
+          </Col>
+          <Col xs={24} md={16}>
+            <Form.Item label={`URL 模板（支持 {{字段key}}）`}>
+              <Input
+                placeholder="{{baseUrl}}/api/user/self"
+                value={urlTemplate}
+                onChange={(e) => setUrlTemplate(e.target.value)}
+              />
+            </Form.Item>
+          </Col>
+        </Row>
+
+        <Form.Item label={`请求头模板（JSON，支持 {{字段key}}，留空值自动移除）`}>
           <CodeEditor value={headersText} mode="json" onChange={setHeadersText} />
-        </div>
-        <div className="modal__field">
-          <span className="field__label">
-            提取函数模板（JS，data 为 JSON 解析后的响应；使用时自动包一层 JSON.parse
-            生成处理函数，支持 {'{{字段key}}'}）
-          </span>
+        </Form.Item>
+
+        <Form.Item
+          label={`提取函数模板（JS，data 为 JSON 解析后的响应；使用时自动包一层 JSON.parse 生成处理函数，支持 {{字段key}}）`}
+        >
           <CodeEditor value={extractorText} mode="js" onChange={setExtractorText} />
-        </div>
-        <div className="modal__actions">
-          <button type="button" className="btn" onClick={() => void save()}>
-            保存预设
-          </button>
-          {builtin && (
-            <button type="button" className="btn btn--ghost" onClick={() => void doReset()}>
-              重置为默认
-            </button>
-          )}
-          <button type="button" className="btn btn--ghost" onClick={onClose}>
-            取消
-          </button>
-        </div>
-      </div>
-    </div>
+        </Form.Item>
+      </Form>
+    </Modal>
   )
 }
